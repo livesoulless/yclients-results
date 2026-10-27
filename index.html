@@ -218,12 +218,13 @@ footer a{color:inherit}
         <div class="row stack-mobile" style="margin-top:14px"><button id="cloudBtn" class="primary" type="submit">Открыть отчёт</button></div>
       </form>
       <div id="cloudErr" class="alert err hidden"></div>
-      <div id="refreshBox" class="refresh" style="margin-top:16px">
+      <div id="refreshBox" class="refresh hidden">
         <div class="row spread"><b>Собрать свежие данные</b><span id="refreshInfo" class="muted"></span></div>
         <div class="muted" style="margin-top:4px">Сбор идёт с сегодняшнего дня назад. Неделя — около 2–3 минут, месяц — около 8–10.</div>
         <div class="seg" id="refreshBtns"><button data-p="day">Сегодня</button><button data-p="week">Неделя</button><button data-p="2weeks">2 недели</button><button data-p="month">Месяц</button></div>
         <div id="refreshKeyBox" class="hidden" style="margin-top:12px">
-          <label for="refreshKey">Ключ запуска сбора (один раз на этом устройстве)</label>
+          <label for="refreshKey">Ключ запуска сбора</label>
+          <p class="muted" style="margin:0 0 8px">В данных нет ключа запуска. Лучше один раз добавить его в секрет <code>RUN_TOKEN</code> репозитория yclients-downloader — тогда вводить его здесь не понадобится. Или введите ключ сейчас, только для этого устройства.</p>
           <input id="refreshKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
           <div class="row" style="margin-top:8px"><button id="refreshKeySave" class="primary">Сохранить и запустить</button></div>
           <details style="margin-top:8px"><summary>Где взять ключ</summary>
@@ -468,7 +469,7 @@ footer a{color:inherit}
   </section>
 
   <footer><span class="readonly">🔒 Только отображение: отчёт ничего не изменяет в YClients и не знает паролей от него.</span><br>Данные расшифровываются и обрабатываются на вашем устройстве и никуда не отправляются. ·
-    <a href="https://github.com/livesoulless/yclients-results">GitHub</a> · отчёт, версия 2026-10-27.3</footer>
+    <a href="https://github.com/livesoulless/yclients-results">GitHub</a> · отчёт, версия 2026-10-27.4</footer>
 </div>
 
 <script>
@@ -1518,7 +1519,9 @@ async function openCloud(pass, silent) {
     if (data.errors && data.errors.length) notes.push("При последнем сборе были проблемы: " + data.errors.join("; "));
     msg($("#resultNote"), notes.join("\n"));
     $("#resultNote").after($("#refreshBox"));
+    show($("#refreshBox"));
     cloudPassCurrent = pass;
+    cloudRunKey = data.runKey || "";
   } catch (e) {
     if (/Неверный пароль/.test(e.message)) store.del("cloudPass");
     msg($("#cloudErr"), e.message || String(e));
@@ -1529,13 +1532,14 @@ $("#cloudBtn").onclick = () => openCloud($("#cloudPass").value);
 /* ---------- Запрос свежих данных: запуск облачного сбора через GitHub Actions ---------- */
 const GH = "https://api.github.com", COLLECTOR = "livesoulless/yclients-downloader", RESULTS = "livesoulless/yclients-results";
 const PERIOD_RU = {day: "сегодня", week: "неделю", "2weeks": "2 недели", month: "месяц"};
-let cloudPassCurrent = "", refreshTimer = null, wantPeriod = null;
+let cloudPassCurrent = "", cloudRunKey = "", refreshTimer = null, wantPeriod = null;
+const runKey = () => cloudRunKey || store.get("runKey") || "";
 const ghHeaders = key => ({"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(key ? {"Authorization": "Bearer " + key} : {})});
 function refreshSay(text, kind) { const el = $("#refreshMsg"); el.className = "alert " + (kind || "ok"); el.textContent = text; show(el, !!text); }
 function refreshBusy(on) { $$("#refreshBtns button").forEach(b => b.disabled = on); }
 $$("#refreshBtns button").forEach(b => b.onclick = () => {
   wantPeriod = b.dataset.p;
-  if (!store.get("runKey")) { show($("#refreshKeyBox")); $("#refreshKey").focus(); refreshSay("Нужен ключ запуска сбора — он вводится один раз на этом устройстве.", "warn"); return; }
+  if (!runKey()) { show($("#refreshKeyBox")); $("#refreshKey").focus(); refreshSay("Нужен ключ запуска сбора.", "warn"); return; }
   startRefresh(wantPeriod);
 });
 $("#refreshKeySave").onclick = () => {
@@ -1545,7 +1549,7 @@ $("#refreshKeySave").onclick = () => {
   startRefresh(wantPeriod || "week");
 };
 async function startRefresh(period) {
-  const key = store.get("runKey");
+  const key = runKey();
   refreshBusy(true);
   refreshSay(`Запускаю сбор за ${PERIOD_RU[period]}…`);
   const t0 = Date.now();
@@ -1555,8 +1559,9 @@ async function startRefresh(period) {
       body: JSON.stringify({ref: "main", inputs: {period}})});
   } catch (e) { refreshBusy(false); return refreshSay("Нет связи с GitHub: " + (e.message || e), "err"); }
   if (r.status === 401 || r.status === 403 || r.status === 404) {
-    store.del("runKey"); refreshBusy(false); show($("#refreshKeyBox"));
-    return refreshSay("Ключ не подошёл (нет доступа к запуску сбора). Проверьте: репозиторий yclients-downloader, права Actions: Read and write.", "err");
+    if (!cloudRunKey) store.del("runKey");
+    refreshBusy(false); if (!cloudRunKey) show($("#refreshKeyBox"));
+    return refreshSay("Ключ запуска не подошёл (нет доступа к запуску сбора). Проверьте ключ в секрете RUN_TOKEN: репозиторий yclients-downloader, права Actions: Read and write. Возможно, истёк срок ключа.", "err");
   }
   if (r.status !== 204) { refreshBusy(false); return refreshSay("GitHub не принял запуск (HTTP " + r.status + ").", "err"); }
   store.set("pendingRun", {since: t0, period});
@@ -1564,7 +1569,7 @@ async function startRefresh(period) {
 }
 async function pollRefresh() {
   clearTimeout(refreshTimer);
-  const pend = store.get("pendingRun"), key = store.get("runKey");
+  const pend = store.get("pendingRun"), key = runKey();
   if (!pend || !key) return refreshBusy(false);
   refreshBusy(true);
   let run = null;
@@ -1605,7 +1610,7 @@ function resumeRefresh() {
 (async () => {
   await fetchCloud();
   const saved = store.get("cloudPass");
-  if (saved && cloudEnv && !location.hash.startsWith("#jd=")) { $("#cloudPass").value = saved; openCloud(saved, true); }
+  if (saved && cloudEnv && !location.hash.startsWith("#jd=")) { $("#cloudPass").value = saved; await openCloud(saved, true); }
   resumeRefresh();
 })();
 
