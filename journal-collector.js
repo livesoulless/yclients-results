@@ -15,6 +15,8 @@
   const APP_ORIGIN = new URL(APP).origin;
   const VERSION = "4";
   const TR = /(\d{1,2}):(\d{2})\s*[–—-]\s*(\d{1,2}):(\d{2})/;
+  /* заголовок карточки: «12:00 – 13:00» или, у узких карточек, только «12:00» */
+  const HEAD = /^\s*(\d{1,2}):(\d{2})(?:\s*[–—-]\s*(\d{1,2}):(\d{2}))?(?=\s|$)/;
   const GRP = /^\(\s*(\d+)\s*\/\s*(\d+)\s*\)\s*(.*)$/;
   const PHONE = /^\+?\d[\d\s()\-]{8,}$/;
   const NAME = /^[А-ЯЁA-Z][а-яёa-z'-]+(\s+[А-ЯЁA-Z][а-яёa-z'-]+){1,2}$/;
@@ -105,7 +107,7 @@
     const w = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
     while (w.nextNode()) {
       const n = w.currentNode, p = n.parentElement;
-      if (!p || inPanel(p) || !TR.test(n.nodeValue)) continue;
+      if (!p || inPanel(p) || !HEAD.test(n.nodeValue)) continue;
       const r = p.getBoundingClientRect();
       if (r.width && r.height) heads.push(p);
     }
@@ -121,12 +123,14 @@
   const sig = doc => cards(doc).map(c => c.innerText.replace(/\s+/g, " ").slice(0, 80)).join("¦");
   function parse(card, date) {
     const lines = card.innerText.split("\n").map(s => s.trim()).filter(Boolean);
-    const ti = lines.findIndex(l => TR.test(l));
+    let ti = lines.findIndex(l => TR.test(l));
+    if (ti < 0) ti = lines.findIndex(l => /^\s*\d{1,2}:\d{2}\b/.test(l));
     if (ti < 0) return null;
-    const tm = lines[ti].match(TR);
-    const rest = lines.slice(ti + 1).filter(l => !TR.test(l) && !/^до\s+\d/i.test(l));
+    const tm = lines[ti].match(/(\d{1,2}):(\d{2})(?:\s*[–—-]\s*(\d{1,2}):(\d{2}))?/);
+    /* убрать служебные строки: время, «до 30.11», «30.11» (повторяющаяся запись) */
+    const rest = lines.slice(ti + 1).filter(l => !HEAD.test(l) && !TR.test(l) && !/^(до\s+)?\d{1,2}\.\d{2}(\.\d{2,4})?$/i.test(l) && !/^до\s+\d/i.test(l));
     const r = card.getBoundingClientRect();
-    const ev = {date, start: pad(tm[1]) + ":" + tm[2], end: pad(tm[3]) + ":" + tm[4], col: Math.round((r.left + r.width / 2) / 20)};
+    const ev = {date, start: pad(tm[1]) + ":" + tm[2], end: tm[3] ? pad(tm[3]) + ":" + tm[4] : "", col: Math.round((r.left + r.width / 2 + SCROLL_X) / 20)};
     const gi = rest.findIndex(l => GRP.test(l));
     if (gi >= 0) {
       const g = rest[gi].match(GRP);
@@ -143,18 +147,56 @@
   }
 
   /* ---------- сбор результатов ---------- */
+  let SCROLL_X = 0;   /* сдвиг прокрутки по горизонтали — чтобы колонка зала считалась одинаково при прокрутке */
   let events = [], seen = new Set(), empty = [], problems = [];
-  function collect(doc, date) {
+  const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+  const fromMin = m => pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60);
+  function collect(doc, date, quiet) {
     let n = 0;
-    for (const c of cards(doc)) {
-      const e = parse(c, iso(date));
-      if (!e) continue;
+    const parsed = cards(doc).map(c => { const e = parse(c, iso(date)); if (e) e._h = c.getBoundingClientRect().height; return e; }).filter(Boolean);
+    /* у узких карточек указано только начало — конец считаем по высоте карточки (пикселей в минуте — по карточкам с полным временем) */
+    const rates = parsed.filter(e => e.end && e._h > 10).map(e => e._h / Math.max(5, toMin(e.end) - toMin(e.start)));
+    const rate = rates.length ? rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)] : 0;
+    for (const e of parsed) {
+      if (!e.end && rate) e.end = fromMin(toMin(e.start) + Math.max(15, Math.round(e._h / rate / 5) * 5));
+      delete e._h;
+    }
+    for (const e of parsed) {
       n++;
       const key = [e.date, e.start, e.title, e.master, e.master ? "" : e.col].join("|");   /* колонка — только для карточек без мастера */
       if (!seen.has(key)) { seen.add(key); events.push(e); }
     }
-    if (!n) empty.push(ru(date).slice(0, 5));
+    if (!n && !quiet) empty.push(ru(date).slice(0, 5));
     return n;
+  }
+  /* Журнал показывает только видимую часть (залы и часы). Прокручиваем его по горизонтали и вертикали и собираем на каждом участке. */
+  async function sweep(doc, date) {
+    const win = doc.defaultView;
+    const all = [...doc.querySelectorAll("body *")];
+    const boxes = all.filter(el => {
+      const cs = win.getComputedStyle(el);
+      const sx = el.scrollWidth - el.clientWidth > 40 && /(auto|scroll)/.test(cs.overflowX);
+      const sy = el.scrollHeight - el.clientHeight > 40 && /(auto|scroll)/.test(cs.overflowY);
+      return (sx || sy) && el.clientWidth > 200 && el.clientHeight > 150;
+    }).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight).slice(0, 3);
+    const docEl = doc.scrollingElement || doc.documentElement;
+    if (docEl.scrollHeight - docEl.clientHeight > 40 || docEl.scrollWidth - docEl.clientWidth > 40) boxes.push(docEl);
+    let total = collect(doc, date, true);
+    for (const box of boxes) {
+      const sx0 = box.scrollLeft, sy0 = box.scrollTop;
+      const stepX = Math.max(200, box.clientWidth * 0.8), stepY = Math.max(150, box.clientHeight * 0.8);
+      for (let x = 0; x <= Math.max(0, box.scrollWidth - box.clientWidth) + 1 && !st.stop; x += stepX) {
+        for (let y = 0; y <= Math.max(0, box.scrollHeight - box.clientHeight) + 1 && !st.stop; y += stepY) {
+          box.scrollLeft = x; box.scrollTop = y;
+          SCROLL_X = box.scrollLeft;
+          await sleep(350);
+          total += collect(doc, date, true);
+        }
+      }
+      box.scrollLeft = sx0; box.scrollTop = sy0; SCROLL_X = 0;
+    }
+    if (!events.some(e => e.date === iso(date))) empty.push(ru(date).slice(0, 5));
+    return total;
   }
 
   /* ---------- способ 1: в фоне, через встроенное окно ---------- */
@@ -196,7 +238,8 @@
   async function frameMode(dates) {
     const fr = document.createElement("iframe");
     fr.setAttribute("aria-hidden", "true");
-    fr.setAttribute("style", `position:fixed;left:0;top:0;width:${Math.max(innerWidth, 1280)}px;height:${Math.max(innerHeight, 900)}px;opacity:0;pointer-events:none;z-index:-1;border:0`);
+    /* большое окно, как огромный монитор: все залы и весь день видны сразу */
+    fr.setAttribute("style", `position:fixed;left:0;top:0;width:${Math.max(innerWidth, 3200)}px;height:${Math.max(innerHeight, 3000)}px;opacity:0;pointer-events:none;z-index:-1;border:0`);
     document.body.appendChild(fr);
     try {
       for (let i = 0; i < dates.length && !st.stop; i++) {
@@ -206,7 +249,7 @@
         if (!loaded) { if (i < 2) return {ok: false, why: "журнал не открывается во встроенном окне"}; problems.push("не загрузился " + ru(d)); continue; }
         const r = await waitFrameDay(fr, d);
         if (!r.ok) { if (i < 2) return {ok: false, why: r.why}; problems.push(r.why + " — " + ru(d)); continue; }
-        collect(r.doc, d);
+        await sweep(r.doc, d);
       }
       return {ok: true};
     } finally { fr.remove(); }
@@ -334,12 +377,13 @@
     const n = Math.round((to - from) / 864e5) + 1;
     if (n > 93) return say("Не больше 3 месяцев за раз.");
     const dates = [...Array(n)].map((_, i) => { const d = new Date(from); d.setDate(d.getDate() + i); return d; });
+    const frameDates = st.desc ? [...dates].reverse() : dates;   /* «с текущего дня»: сначала самые свежие дни */
     st.stop = false; st.busy = true; events = []; seen = new Set(); empty = []; problems = [];
     $('[data-a="go"]').style.display = "none"; $('[data-a="stop"]').style.display = "block"; $('[data-f="out"]').style.display = "none";
     const notes = [];
     try {
       say("Открываю журнал в фоне…");
-      let r = await frameMode(dates);
+      let r = await frameMode(frameDates);
       if (!r.ok && !st.stop) {
         notes.push("В фоне не получилось (" + r.why + "), листал журнал на экране.");
         events = []; seen = new Set(); empty = []; problems = [];
@@ -449,7 +493,7 @@
   });
   /* для программы «Автосбор»: запустить сбор за период и получить результат */
   window.__ycx = {panel, status: () => $('[data-f="msg"]').textContent,
-    collect: async (f, t) => { $('[data-f="from"]').value = f; $('[data-f="to"]').value = t; if (!st.busy) await run(); return st.payload; }};
+    collect: async (f, t, opts) => { st.desc = !!(opts && opts.desc); $('[data-f="from"]').value = f; $('[data-f="to"]').value = t; if (!st.busy) await run(); return st.payload; }};
   /* если страница перерисуется и уберёт окно сборщика — вернуть его */
   setInterval(() => { if (panel.style.display !== "none" && !document.documentElement.contains(panel)) document.body.appendChild(panel); }, 1000);
  } catch (err) {

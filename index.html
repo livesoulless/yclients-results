@@ -184,6 +184,10 @@ code{font-size:13px;background:var(--surface-2);border:1px solid var(--line);bor
 .sortbar select{width:auto;min-width:220px}
 .sortbar button{min-height:44px;white-space:nowrap}
 @media (max-width:600px){.sortbar{width:100%;flex-wrap:nowrap}.sortbar>span.muted{display:none}.sortbar select{flex:1;min-width:0}.sortbar .long{display:none}}
+.refresh{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface-2);margin:0 0 16px}
+.refresh .seg{margin-top:10px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+.refresh .seg button{min-width:0}
+@media (max-width:480px){.refresh .seg{grid-template-columns:repeat(2,minmax(0,1fr))}}
 footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}
 footer a{color:inherit}
 </style>
@@ -214,6 +218,24 @@ footer a{color:inherit}
         <div class="row stack-mobile" style="margin-top:14px"><button id="cloudBtn" class="primary" type="submit">Открыть отчёт</button></div>
       </form>
       <div id="cloudErr" class="alert err hidden"></div>
+      <div id="refreshBox" class="refresh" style="margin-top:16px">
+        <div class="row spread"><b>Собрать свежие данные</b><span id="refreshInfo" class="muted"></span></div>
+        <div class="muted" style="margin-top:4px">Сбор идёт с сегодняшнего дня назад. Неделя — около 2–3 минут, месяц — около 8–10.</div>
+        <div class="seg" id="refreshBtns"><button data-p="day">Сегодня</button><button data-p="week">Неделя</button><button data-p="2weeks">2 недели</button><button data-p="month">Месяц</button></div>
+        <div id="refreshKeyBox" class="hidden" style="margin-top:12px">
+          <label for="refreshKey">Ключ запуска сбора (один раз на этом устройстве)</label>
+          <input id="refreshKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+          <div class="row" style="margin-top:8px"><button id="refreshKeySave" class="primary">Сохранить и запустить</button></div>
+          <details style="margin-top:8px"><summary>Где взять ключ</summary>
+            <ol>
+              <li>github.com → аватар → <b>Settings</b> → <b>Developer settings</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b>.</li>
+              <li>Repository access: <b>Only select repositories</b> → <code>yclients-downloader</code>.</li>
+              <li>Permissions → Repository permissions → <b>Actions: Read and write</b>. Больше ничего не нужно.</li>
+              <li>Скопируйте ключ и вставьте сюда. Ключ хранится только на этом устройстве и даёт право лишь запускать сбор.</li>
+            </ol></details>
+        </div>
+        <div id="refreshMsg" class="alert hidden"></div>
+      </div>
     </div>
     <div id="filePane" class="hidden">
       <ol class="howto">
@@ -446,7 +468,7 @@ footer a{color:inherit}
   </section>
 
   <footer><span class="readonly">🔒 Только отображение: отчёт ничего не изменяет в YClients и не знает паролей от него.</span><br>Данные расшифровываются и обрабатываются на вашем устройстве и никуда не отправляются. ·
-    <a href="https://github.com/livesoulless/yclients-results">GitHub</a> · отчёт, версия 2026-10-27.2</footer>
+    <a href="https://github.com/livesoulless/yclients-results">GitHub</a> · отчёт, версия 2026-10-27.3</footer>
 </div>
 
 <script>
@@ -1495,16 +1517,96 @@ async function openCloud(pass, silent) {
     const notes = ["Данные из журнала записи: «пришло» равно числу записавшихся — отметки визитов в журнале не видны."];
     if (data.errors && data.errors.length) notes.push("При последнем сборе были проблемы: " + data.errors.join("; "));
     msg($("#resultNote"), notes.join("\n"));
+    $("#resultNote").after($("#refreshBox"));
+    cloudPassCurrent = pass;
   } catch (e) {
     if (/Неверный пароль/.test(e.message)) store.del("cloudPass");
     msg($("#cloudErr"), e.message || String(e));
   } finally { btn.disabled = false; btn.textContent = "Открыть отчёт"; }
 }
 $("#cloudBtn").onclick = () => openCloud($("#cloudPass").value);
+
+/* ---------- Запрос свежих данных: запуск облачного сбора через GitHub Actions ---------- */
+const GH = "https://api.github.com", COLLECTOR = "livesoulless/yclients-downloader", RESULTS = "livesoulless/yclients-results";
+const PERIOD_RU = {day: "сегодня", week: "неделю", "2weeks": "2 недели", month: "месяц"};
+let cloudPassCurrent = "", refreshTimer = null, wantPeriod = null;
+const ghHeaders = key => ({"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(key ? {"Authorization": "Bearer " + key} : {})});
+function refreshSay(text, kind) { const el = $("#refreshMsg"); el.className = "alert " + (kind || "ok"); el.textContent = text; show(el, !!text); }
+function refreshBusy(on) { $$("#refreshBtns button").forEach(b => b.disabled = on); }
+$$("#refreshBtns button").forEach(b => b.onclick = () => {
+  wantPeriod = b.dataset.p;
+  if (!store.get("runKey")) { show($("#refreshKeyBox")); $("#refreshKey").focus(); refreshSay("Нужен ключ запуска сбора — он вводится один раз на этом устройстве.", "warn"); return; }
+  startRefresh(wantPeriod);
+});
+$("#refreshKeySave").onclick = () => {
+  const k = $("#refreshKey").value.trim();
+  if (!/^(github_pat_|ghp_)/.test(k)) return refreshSay("Ключ должен начинаться с github_pat_…", "err");
+  store.set("runKey", k); $("#refreshKey").value = ""; show($("#refreshKeyBox"), false);
+  startRefresh(wantPeriod || "week");
+};
+async function startRefresh(period) {
+  const key = store.get("runKey");
+  refreshBusy(true);
+  refreshSay(`Запускаю сбор за ${PERIOD_RU[period]}…`);
+  const t0 = Date.now();
+  let r;
+  try {
+    r = await fetch(`${GH}/repos/${COLLECTOR}/actions/workflows/collect.yml/dispatches`, {method: "POST", headers: {...ghHeaders(key), "Content-Type": "application/json"},
+      body: JSON.stringify({ref: "main", inputs: {period}})});
+  } catch (e) { refreshBusy(false); return refreshSay("Нет связи с GitHub: " + (e.message || e), "err"); }
+  if (r.status === 401 || r.status === 403 || r.status === 404) {
+    store.del("runKey"); refreshBusy(false); show($("#refreshKeyBox"));
+    return refreshSay("Ключ не подошёл (нет доступа к запуску сбора). Проверьте: репозиторий yclients-downloader, права Actions: Read and write.", "err");
+  }
+  if (r.status !== 204) { refreshBusy(false); return refreshSay("GitHub не принял запуск (HTTP " + r.status + ").", "err"); }
+  store.set("pendingRun", {since: t0, period});
+  pollRefresh();
+}
+async function pollRefresh() {
+  clearTimeout(refreshTimer);
+  const pend = store.get("pendingRun"), key = store.get("runKey");
+  if (!pend || !key) return refreshBusy(false);
+  refreshBusy(true);
+  let run = null;
+  try {
+    const j = await (await fetch(`${GH}/repos/${COLLECTOR}/actions/workflows/collect.yml/runs?event=workflow_dispatch&per_page=5`, {headers: ghHeaders(key), cache: "no-store"})).json();
+    run = (j.workflow_runs || []).find(x => new Date(x.created_at).getTime() >= pend.since - 60000);
+  } catch {}
+  const mins = Math.floor((Date.now() - pend.since) / 60000), secs = Math.floor((Date.now() - pend.since) / 1000) % 60;
+  const took = `${mins}:${String(secs).padStart(2, "0")}`;
+  if (!run || run.status !== "completed") {
+    if (Date.now() - pend.since > 45 * 60000) { store.del("pendingRun"); refreshBusy(false); return refreshSay("Сбор идёт слишком долго — проверьте запуск на GitHub (Actions).", "err"); }
+    refreshSay(`Сбор за ${PERIOD_RU[pend.period]} идёт: ${!run ? "ставлю в очередь" : run.status === "queued" ? "в очереди" : "собираю журнал"} · ${took}`);
+    refreshTimer = setTimeout(pollRefresh, 6000);
+    return;
+  }
+  store.del("pendingRun"); refreshBusy(false);
+  if (run.conclusion !== "success") {
+    refreshSay(`Сбор не удался (${run.conclusion}). Частая причина — истёк сеанс YClients: обновите секрет YC_COOKIES. Подробности: ${run.html_url}`, "err");
+    return;
+  }
+  refreshSay("Сбор завершён, загружаю данные…");
+  try {
+    const r = await fetch(`${GH}/repos/${RESULTS}/contents/data/latest.enc.json?ref=main&t=${Date.now()}`, {headers: {...ghHeaders(key), "Accept": "application/vnd.github.raw+json"}, cache: "no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    cloudEnv = await r.json();
+    $("#cloudInfo").className = "alert ok";
+    $("#cloudInfo").textContent = `Данные обновлены ${fmtStamp(cloudEnv.updated)} · период ${ruDate(cloudEnv.from)} — ${ruDate(cloudEnv.to)}`;
+  } catch (e) { return refreshSay("Сбор завершён, но данные не загрузились: " + (e.message || e) + ". Обновите страницу через минуту.", "err"); }
+  const pass = cloudPassCurrent || store.get("cloudPass") || $("#cloudPass").value;
+  if (!pass) { refreshSay(`Готово за ${took}. Введите пароль отчёта и нажмите «Открыть отчёт».`); return; }
+  await openCloud(pass);
+  refreshSay(`Готово: данные обновлены за ${took}.`);
+}
+function resumeRefresh() {
+  const pend = store.get("pendingRun");
+  if (pend && Date.now() - pend.since < 45 * 60000) pollRefresh(); else store.del("pendingRun");
+}
 (async () => {
   await fetchCloud();
   const saved = store.get("cloudPass");
   if (saved && cloudEnv && !location.hash.startsWith("#jd=")) { $("#cloudPass").value = saved; openCloud(saved, true); }
+  resumeRefresh();
 })();
 
 /* ---------- Режим «Из журнала» ---------- */
@@ -1698,8 +1800,11 @@ $("#buildBtn").onclick = () => {
   msg($("#resultNote"));
 };
 $("#logoutBtn").onclick = () => {
-  if (store.get("auth") && confirm("Удалить сохранённые токены с этого устройства?")) store.del("auth");
-  location.reload();
+  const saved = store.get("cloudPass") || store.get("runKey") || store.get("auth");
+  if (saved && !confirm("Выйти и забыть на этом устройстве пароль отчёта и ключ запуска сбора?")) return;
+  ["cloudPass", "runKey", "auth", "pendingRun"].forEach(k => store.del(k));
+  try { sessionStorage.setItem("ycx.loggedOut", "1"); } catch {}
+  location.href = location.pathname;
 };
 
 function onConnected(companies) {
