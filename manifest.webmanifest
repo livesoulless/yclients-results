@@ -1,0 +1,14 @@
+{
+  "name": "Отчёт по занятиям YClients",
+  "short_name": "Отчёт YC",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4f1",
+  "theme_color": "#d9573b",
+  "lang": "ru",
+  "icons": [
+    {"src": "icon-180.png", "sizes": "180x180", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

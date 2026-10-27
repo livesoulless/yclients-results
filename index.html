@@ -1,0 +1,2026 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Отчёт YClients</title>
+<meta name="description" content="Выгрузка прошедших и запланированных занятий из YClients в Excel">
+<meta name="theme-color" content="#d9573b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Отчёт YC">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --bg:#f6f4f1; --surface:#fff; --surface-2:#faf8f5; --line:#e7e2dc; --text:#1d1b19; --muted:#6f6962;
+  --accent:#d9573b; --accent-ink:#fff; --accent-soft:#fbe6df;
+  --ind:#b4601a; --ind-bg:#fcecdc; --pair:#6a4fb3; --pair-bg:#ece6f8; --group:#2f7d4f; --group-bg:#e1f2e7;
+  --planned:#2b62b8; --planned-bg:#e3edfb; --past:#6f6962; --past-bg:#efece8; --danger:#b3261e; --danger-bg:#fbe3e1;
+  --ok-bg:#e1f2e7; --ok:#2f7d4f;
+  --radius:16px; --shadow:0 1px 2px rgba(30,20,10,.05),0 4px 16px rgba(30,20,10,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#161412; --surface:#201d1a; --surface-2:#282521; --line:#3a352f; --text:#f1ece6; --muted:#a69e95;
+  --accent:#ef7a5d; --accent-ink:#1a0f0b; --accent-soft:#3a241d;
+  --ind:#f0a25c; --ind-bg:#3a2a1b; --pair:#b9a3f2; --pair-bg:#2c2540; --group:#79cf9a; --group-bg:#1d3326;
+  --planned:#8cb4f5; --planned-bg:#1e2b40; --past:#a69e95; --past-bg:#2c2925; --danger:#f2a39d; --danger-bg:#3d1f1d;
+  --ok-bg:#1d3326; --ok:#79cf9a;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:3px}
+h2{font-size:17px;margin:0 0 14px;display:flex;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--group)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+@media (max-width:600px){.card{padding:16px;border-radius:14px}}
+.step{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:700;margin-right:10px}
+label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+input[type=text],input[type=password],input[type=date],input[type=search],input[type=url],select{
+  width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--text);font:inherit;font-size:16px;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+input[type=date]{min-width:0}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.grid{display:grid;gap:14px}
+.grid>*,.dates>*{min-width:0}
+.g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media (max-width:760px){.g2{grid-template-columns:minmax(0,1fr)}}
+.dates{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+button{font:inherit;cursor:pointer;border-radius:11px;min-height:44px;padding:10px 16px;border:1px solid var(--line);background:var(--surface);color:var(--text);touch-action:manipulation}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.ghost{background:transparent}
+button:disabled{opacity:.55;cursor:default}
+@media (max-width:600px){.stack-mobile{flex-direction:column;align-items:stretch}.stack-mobile>*{width:100%}}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;max-width:100%;overflow-x:auto}
+.seg button{border:0;background:transparent;min-height:36px;padding:6px 12px;border-radius:8px;font-size:14px;color:var(--muted);white-space:nowrap}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text);margin:0;cursor:pointer}
+.check input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--accent)}
+.muted{color:var(--muted);font-size:13px}
+.alert{padding:11px 14px;border-radius:11px;font-size:14px;margin-top:12px;white-space:pre-line}
+.alert.err{background:var(--danger-bg);color:var(--danger)}
+.alert.warn{background:var(--ind-bg);color:var(--ind)}
+.alert.ok{background:var(--ok-bg);color:var(--ok)}
+details{margin-top:14px;font-size:14px}
+details summary{cursor:pointer;color:var(--accent);padding:6px 0}
+details ol,details ul{padding-left:20px;margin:6px 0 0;color:var(--muted)}
+details li{margin:4px 0}
+code{font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 5px;word-break:break-all}
+.branches{max-height:260px;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:11px;padding:4px;background:var(--surface-2)}
+.branches label{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:9px;margin:0;color:var(--text);font-size:15px;cursor:pointer}
+.branches label:hover{background:var(--surface)}
+.branches input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--accent)}
+.branches .addr{display:block;color:var(--muted);font-size:12px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.presets button{min-height:34px;padding:5px 11px;font-size:13px;border-radius:999px}
+.progress{height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.progress div{height:100%;width:0;background:var(--accent);transition:width .3s}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}}
+.kpi{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--muted)}
+@media (max-width:420px){.kpi{padding:10px}.kpi b{font-size:19px}}
+.filters{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:end;margin-bottom:12px}
+@media (max-width:900px){.filters{grid-template-columns:minmax(0,1fr)}}
+.only-m{display:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{min-height:34px;padding:5px 12px;border-radius:999px;font-size:13px;border:1px solid var(--line);background:var(--surface)}
+.chip.on[data-f="Индивидуальное"]{background:var(--ind-bg);color:var(--ind);border-color:transparent}
+.chip.on[data-f="Пара"]{background:var(--pair-bg);color:var(--pair);border-color:transparent}
+.chip.on[data-f="Группа"]{background:var(--group-bg);color:var(--group);border-color:transparent}
+.chip.on[data-f="Нет записей"]{background:var(--past-bg);color:var(--past);border-color:transparent}
+/* список занятий: таблица на компьютере, карточки на телефоне */
+.list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.lrow{display:grid;grid-template-columns:128px 1fr 1.5fr 1.1fr 128px 132px 124px;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);align-items:start;font-size:14px}
+.lrow:last-child{border-bottom:0}
+.lhead{background:var(--surface-2);font-size:12px;font-weight:600;color:var(--muted);position:sticky;top:0}
+.num{font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);font-size:12px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;white-space:nowrap}
+.f-Индивидуальное{background:var(--ind-bg);color:var(--ind)} .f-Пара{background:var(--pair-bg);color:var(--pair)}
+.f-Группа{background:var(--group-bg);color:var(--group)} .f-Нет{background:var(--past-bg);color:var(--past)}
+.s-Запланировано{background:var(--planned-bg);color:var(--planned)} .s-Прошло{background:var(--past-bg);color:var(--past)}
+@media (max-width:760px){
+  .lhead{display:none}
+  .list{border:0;border-radius:0;overflow:visible;display:grid;gap:10px}
+  .lrow{grid-template-columns:1fr auto;grid-template-areas:"when status" "service service" "master master" "format people";gap:4px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px}
+  .lrow:last-child{border-bottom:1px solid var(--line)}
+  .c-when{grid-area:when}.c-status{grid-area:status;text-align:right}.c-service{grid-area:service;font-weight:600;font-size:15px}
+  .c-master{grid-area:master;color:var(--muted)} .c-branch{display:none} .c-format{grid-area:format;margin-top:4px} .c-people{grid-area:people;text-align:right;margin-top:4px}
+  .c-when .sub{display:inline;margin-left:6px}
+  .only-m{display:inline}
+}
+.hidden{display:none!important}
+.dl{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.fbox>summary{display:none}
+@media (max-width:760px){.fbox{margin-bottom:12px}.fbox>summary{display:block;list-style:none;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:11px 14px;background:var(--surface-2);font-size:15px}
+.fbox>summary::-webkit-details-marker{display:none}.fbox>summary::after{content:"▾";float:right;color:var(--muted)}.fbox[open]>summary{margin-bottom:12px}}
+.views{display:flex;width:100%;margin-bottom:16px}.views button{flex:1}
+.glist{display:grid;gap:8px}
+.ghead,.grp>summary{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1.3fr) 110px 130px 170px 18px;gap:12px;align-items:center;padding:12px 14px}
+.ghead{font-size:12px;font-weight:600;color:var(--muted);padding-bottom:0}
+.grp{border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.grp>summary{list-style:none;cursor:pointer;font-size:14px;color:var(--text);padding:12px 14px}
+.grp>summary::-webkit-details-marker{display:none}
+.grp .chev{color:var(--muted);font-size:20px;transition:transform .2s;text-align:center}
+.grp[open] .chev{transform:rotate(90deg)}
+.fillbar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:5px}
+.fillbar i{display:block;height:100%;background:var(--group);border-radius:99px}
+.fillbar.mid i{background:#d39a2c}.fillbar.lo i{background:var(--accent)}
+.gdet{padding:0 14px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.gdet table{width:100%;border-collapse:collapse;font-size:13px;min-width:460px}
+.gdet th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.gdet td{padding:6px 8px;border-bottom:1px solid var(--line)}
+.gdet tr:last-child td{border-bottom:0}
+.tops{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.tops h3{font-size:15px;margin:0 0 10px;display:flex;gap:8px;align-items:center}
+.rank{display:grid;grid-template-columns:30px minmax(0,1fr) 150px;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin-bottom:8px;font-size:14px}
+.rn{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--surface);border:1px solid var(--line)}
+.best .rn{background:var(--group-bg);color:var(--group);border-color:transparent}
+.worst .rn{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.readonly{display:inline-flex;gap:6px;align-items:center}
+@media (max-width:760px){
+  .ghead{display:none}
+  .grp>summary{grid-template-columns:minmax(0,1fr) 120px;grid-template-areas:"name fill" "masters masters" "count people";gap:6px 10px}
+  .g-name{grid-area:name}.g-fill{grid-area:fill}.g-masters{grid-area:masters;color:var(--muted)}.g-count{grid-area:count}.g-people{grid-area:people;text-align:right}.grp .chev{display:none}
+  .tops{grid-template-columns:minmax(0,1fr)}
+  .rank{grid-template-columns:30px minmax(0,1fr) 110px}
+}
+.howto{margin:0 0 14px;padding-left:20px;color:var(--text);font-size:14px}.howto li{margin:5px 0}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:120px;border:2px dashed var(--line);border-radius:14px;background:var(--surface-2);cursor:pointer;text-align:center;padding:16px;color:var(--text);font-size:16px;margin:0}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{color:var(--accent)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.fmap{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:var(--surface-2)}
+.fmap h3{font-size:15px;margin:0 0 4px;word-break:break-all}
+.mapgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:900px){.mapgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.mapgrid{grid-template-columns:minmax(0,1fr)}}
+.req label::after{content:" *";color:var(--accent)}
+.preview{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.preview table{border-collapse:collapse;font-size:12px;width:100%}
+.preview th,.preview td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.preview th{color:var(--muted);font-weight:600}
+.bm{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;text-decoration:none;cursor:grab;border:2px dashed transparent}
+.bm:active{cursor:grabbing}
+.jsteps{margin:0 0 14px;padding-left:20px;font-size:14px}.jsteps li{margin:8px 0}
+.only-desk{} .only-touch{display:none}
+@media (pointer: coarse){.only-desk{display:none}.only-touch{display:block}}
+.sortable{cursor:pointer;user-select:none;-webkit-user-select:none}
+.sortable:hover{color:var(--text)}
+.sortable.on{color:var(--accent)}
+.sortbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sortbar select{width:auto;min-width:220px}
+.sortbar button{min-height:44px;white-space:nowrap}
+@media (max-width:600px){.sortbar{width:100%;flex-wrap:nowrap}.sortbar>span.muted{display:none}.sortbar select{flex:1;min-width:0}.sortbar .long{display:none}}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Отчёт по занятиям YClients<small>Прошедшие и запланированные занятия, мастера, формат и посещаемость — в Excel</small></h1>
+    <div class="row">
+      <span id="connBadge" class="badge hidden"><span class="dot"></span><span id="connText"></span></span>
+      <button id="logoutBtn" class="ghost hidden">Выйти</button>
+    </div>
+  </header>
+
+  <!-- ШАГ 1. Подключение -->
+  <section id="connectCard" class="card">
+    <h2><span class="step">1</span>Откуда взять данные</h2>
+    <div class="seg views" id="srcTabs" style="margin-bottom:16px"><button class="on" data-src="cloud">Облако</button><button data-src="file">Файл</button><button data-src="journal">Журнал</button></div>
+    <div id="cloudPane">
+      <p style="margin:0 0 12px;font-size:14px">Данные собираются <b>автоматически</b>: сборщик на серверах GitHub по расписанию входит в YClients,
+        собирает журнал записи и выкладывает результат сюда в <b>зашифрованном</b> виде. Чтобы открыть отчёт, введите пароль отчёта.</p>
+      <div id="cloudInfo" class="alert ok" style="margin:0 0 14px">Проверяю, есть ли свежие данные…</div>
+      <form id="cloudForm" autocomplete="on" onsubmit="return false">
+        <input type="text" name="username" autocomplete="username" value="yclients-results" style="display:none" aria-hidden="true">
+        <label for="cloudPass">Пароль отчёта</label>
+        <input id="cloudPass" name="password" type="password" autocomplete="current-password" placeholder="Пароль отчёта">
+        <label class="check" style="margin-top:12px"><input id="cloudRemember" type="checkbox" checked><span>Запомнить на этом устройстве</span></label>
+        <div class="row stack-mobile" style="margin-top:14px"><button id="cloudBtn" class="primary" type="submit">Открыть отчёт</button></div>
+      </form>
+      <div id="cloudErr" class="alert err hidden"></div>
+    </div>
+    <div id="filePane" class="hidden">
+      <ol class="howto">
+        <li>В YClients откройте <b>Аналитика → Обзор → Записи</b>.</li>
+        <li>Выберите период по <b>дате визита</b> (например, прошлый месяц или неделю) и нажмите «Показать».</li>
+        <li>Выгрузите список в <b>Excel</b>. YClients пришлёт ссылку на файл на почту; файл также лежит в «Обзор → Excel выгрузки».</li>
+        <li>Выберите скачанный файл здесь. Можно сразу несколько — например, по разным филиалам.</li>
+      </ol>
+      <label class="drop" id="drop"><input id="fileInput" class="vh" type="file" accept=".xlsx,.xls,.csv,.htm,.html" multiple><b>Выбрать файл</b><span class="muted">или перетащите его сюда · .xlsx или .csv</span></label>
+      <p class="muted" style="margin:10px 0 0">Подойдёт и любая другая таблица записей, где есть дата, время, название занятия и мастер. Файл обрабатывается прямо на этом устройстве и никуда не отправляется. Ни ключ, ни пароль не нужны.</p>
+      <div id="fileErr" class="alert err hidden"></div>
+      <div class="row" style="margin-top:12px"><button id="demoBtn2" class="ghost">Посмотреть на демо-данных</button></div>
+    </div>
+    <div id="journalPane" class="hidden">
+      <p style="margin:0 0 12px;font-size:14px">Если в YClients нет раздела «Аналитика», данные можно собрать прямо из <b>журнала записи</b>, который вы видите.
+        Для этого один раз ставится закладка в браузер. Она открывает дни выбранного периода в фоне (ваш экран не меняется), а если так нельзя — сама листает журнал стрелками «‹ ›», ждёт загрузки и читает карточки занятий
+        («(3/12) Здоровая спина», время, мастер). <b>Только чтение</b>: закладка ничего не нажимает внутри занятий и ничего не меняет.
+        Имена и телефоны клиентов не собираются.</p>
+      <ol class="jsteps">
+        <li class="only-desk"><b>Поставьте закладку.</b> Перетащите эту кнопку мышкой на панель закладок браузера
+          (если панели не видно — нажмите Ctrl+Shift+B, на Mac — ⌘+Shift+B):<br>
+          <a id="bmLink" class="bm" href="#" style="margin-top:8px">📋 Сбор занятий YClients</a></li>
+        <li class="only-touch"><b>Поставьте закладку (телефон, планшет).</b> Нажмите «Скопировать код закладки», добавьте в закладки любую страницу,
+          затем измените эту закладку: назовите её «Сбор YClients» и вместо адреса вставьте скопированный код. Запускать её нужно через адресную строку: начните вводить «Сбор» и выберите закладку в подсказках.</li>
+        <li><button id="bmCopy" class="ghost" style="min-height:38px">Скопировать код закладки</button> <span id="bmCopyMsg" class="muted"></span></li>
+        <li><b>Откройте журнал записи</b> YClients (<code>yclients.ru/timetable/…</code>) на нужном филиале, режим «день».</li>
+        <li><b>Нажмите закладку</b> (на телефоне — начните вводить её название в адресной строке и выберите её).
+          Появится окно сборщика: выберите период и нажмите «Собрать», затем «Открыть в приложении».</li>
+      </ol>
+      <details style="margin:0 0 14px">
+        <summary>Нажимаю закладку — ничего не происходит</summary>
+        <ul>
+          <li><b>Android / Chrome на телефоне или планшете:</b> закладка, открытая из меню «Закладки», не запускается — так устроен Chrome.
+            Откройте журнал YClients, нажмите на <b>адресную строку</b>, начните вводить название закладки (например, «Сбор») и выберите её
+            в подсказках — она отмечена звёздочкой.</li>
+          <li><b>Если короткая закладка выдала сообщение, что сайт не дал загрузить код</b>, — поставьте полную версию закладки
+            (около 13 000 символов; на телефоне её проще вставлять на компьютере и синхронизировать закладки):<br>
+            <button id="bmCopyFull" class="ghost" style="min-height:38px;margin-top:8px">Скопировать полную версию закладки</button> <span id="bmCopyFullMsg" class="muted"></span></li>
+          <li><b>Проверьте, что код вставлен целиком</b> и начинается с <code>javascript:</code>. Некоторые браузеры при вставке отрезают
+            это слово — тогда допишите <code>javascript:</code> в начало адреса закладки вручную.</li>
+          <li><b>Проверьте, работают ли закладки вообще:</b> создайте закладку с адресом <code>javascript:alert('Закладки работают')</code>
+            и запустите её на странице журнала. Если сообщения нет — браузер не разрешает такие закладки, используйте компьютер.</li>
+          <li><b>На компьютере без закладок:</b> откройте журнал, нажмите <b>F12</b> → вкладка <b>Console</b>, вставьте код из кнопки
+            ниже и нажмите Enter. Chrome может попросить сначала ввести <code>allow pasting</code> — введите и нажмите Enter, затем вставьте код ещё раз.<br>
+            <button id="consoleCopy" class="ghost" style="min-height:38px;margin-top:8px">Скопировать код для консоли</button> <span id="consoleCopyMsg" class="muted"></span></li>
+        </ul>
+      </details>
+      <p class="muted" style="margin:0 0 10px">Если окно приложения не открылось — нажмите в сборщике «Скачать файл» или «Скопировать данные» и загрузите их здесь:</p>
+      <div class="row stack-mobile">
+        <label class="drop" style="min-height:0;flex:1;padding:12px;flex-direction:row"><input id="jFileInput" class="vh" type="file" accept=".json,application/json" multiple><b>Выбрать файл сборщика</b></label>
+        <button id="jPasteBtn" class="ghost">Вставить из буфера</button>
+      </div>
+      <div id="jErr" class="alert err hidden"></div>
+    </div>
+    <div id="apiPane" class="hidden">
+    <div id="savedBox" class="alert ok hidden" style="margin:0 0 14px">
+      <div class="row spread"><span>Есть сохранённый вход<span id="savedLogin"></span>.</span><button id="savedBtn" class="primary">Войти</button></div>
+    </div>
+    <div class="seg" role="tablist" style="margin-bottom:14px">
+      <button class="on" data-tab="pwd">Логин и пароль</button>
+      <button data-tab="token">Готовый токен</button>
+    </div>
+    <div class="grid g2">
+      <div style="grid-column:1/-1">
+        <label for="partner">Партнёрский токен (API-ключ разработчика)</label>
+        <input id="partner" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ключ из кабинета разработчика YClients">
+      </div>
+      <div data-pane="pwd"><label for="login">Логин сотрудника (телефон или email)</label><input id="login" type="text" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      <div data-pane="pwd"><label for="password">Пароль</label><input id="password" type="password" autocomplete="current-password"></div>
+      <div data-pane="token" class="hidden" style="grid-column:1/-1"><label for="usertoken">Токен пользователя (User token)</label><input id="usertoken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <div id="codeBox" class="hidden" style="grid-column:1/-1"><label for="code">Код подтверждения (пришёл на почту или в приложение)</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code"></div>
+    </div>
+    <label class="check" style="margin-top:14px"><input id="remember" type="checkbox" checked><span>Запомнить токены на этом устройстве <span class="muted">(пароль не сохраняется)</span></span></label>
+    <div class="row stack-mobile" style="margin-top:14px;justify-content:flex-end">
+      <button id="demoBtn" class="ghost">Посмотреть на демо-данных</button>
+      <button id="connectBtn" class="primary">Подключиться</button>
+    </div>
+    <div id="connectErr" class="alert err hidden"></div>
+    <details>
+      <summary>Где взять партнёрский токен?</summary>
+      <ol>
+        <li>Зарегистрируйтесь в кабинете разработчика маркетплейса YClients: <code>yclients.ru/appstore/developers</code>.</li>
+        <li>Скопируйте API-ключ в разделе «Настройки аккаунта» — это и есть партнёрский токен.</li>
+        <li>Логин и пароль — от вашей учётной записи в YClients; у неё должен быть доступ к журналу записи нужных филиалов.</li>
+      </ol>
+    </details>
+    <details id="proxyDetails">
+      <summary>Дополнительно: адрес прокси</summary>
+      <p class="muted" style="margin:6px 0 8px">Нужен, только если браузер не пускает запросы к YClients напрямую (приложение подскажет). Как его сделать за 5 минут — в README репозитория.</p>
+      <input id="proxy" type="url" placeholder="https://yclients-proxy.ваше-имя.workers.dev" autocapitalize="off" spellcheck="false">
+    </details>
+    </div>
+  </section>
+
+  <!-- ШАГ 2 (файл). Сопоставление колонок -->
+  <section id="mapCard" class="card hidden">
+    <h2><span class="step">2</span>Проверьте колонки</h2>
+    <p class="muted" style="margin:0 0 12px">Приложение само нашло нужные колонки. Если что-то определилось неверно — поправьте в списках. Обязательные отмечены звёздочкой.</p>
+    <div id="fmaps"></div>
+    <div class="grid g2" style="margin-top:4px">
+      <div><label for="defCap">Мест в группе, если в файле этого нет (необязательно)</label><input id="defCap" type="text" inputmode="numeric" placeholder="Например: 12"></div>
+      <div class="muted" style="align-self:end">Нужно, чтобы считать наполняемость в процентах. Без этого рейтинг строится по среднему числу пришедших.</div>
+    </div>
+    <div class="row stack-mobile" style="margin-top:16px">
+      <button id="buildBtn" class="primary">Построить отчёт</button>
+      <button id="otherFileBtn" class="ghost">Выбрать другой файл</button>
+    </div>
+    <div id="mapErr" class="alert err hidden"></div>
+    <div id="mapWarn" class="alert warn hidden"></div>
+  </section>
+
+  <!-- ШАГ 2. Параметры -->
+  <section id="paramsCard" class="card hidden">
+    <h2><span class="step">2</span>Что выгрузить</h2>
+    <div class="grid g2">
+      <div>
+        <div class="row spread" style="margin-bottom:6px">
+          <label style="margin:0">Филиалы</label>
+          <label class="check muted" style="font-size:13px;align-items:center"><input id="allBranches" type="checkbox" checked>выбрать все</label>
+        </div>
+        <input id="branchSearch" type="search" placeholder="Найти филиал…" style="margin-bottom:8px">
+        <div id="branches" class="branches"></div>
+      </div>
+      <div>
+        <div class="dates">
+          <div><label for="dFrom">Период с</label><input id="dFrom" type="date"></div>
+          <div><label for="dTo">по</label><input id="dTo" type="date"></div>
+        </div>
+        <div class="presets" id="presets">
+          <button data-p="lastweek">Прошлая неделя</button>
+          <button data-p="week">Эта неделя</button>
+          <button data-p="nextweek">Следующая</button>
+          <button data-p="lastmonth">Прошлый месяц</button>
+          <button data-p="month">Этот месяц</button>
+          <button data-p="around">±30 дней</button>
+        </div>
+        <label class="check" style="margin-top:16px"><input id="withClients" type="checkbox"><span>Добавить имена и телефоны клиентов</span></label>
+        <p class="muted" style="margin:6px 0 16px">Без галочки в файле только занятия, мастера и количество людей — без персональных данных.</p>
+        <div class="row stack-mobile">
+          <button id="loadBtn" class="primary">Загрузить занятия</button>
+          <button id="cancelBtn" class="ghost hidden">Остановить</button>
+        </div>
+      </div>
+    </div>
+    <div id="progressBox" class="hidden" style="margin-top:16px">
+      <div class="progress"><div id="bar"></div></div>
+      <p id="progressMsg" class="muted" style="margin:8px 0 0"></p>
+    </div>
+    <div id="loadErr" class="alert err hidden"></div>
+    <div id="loadWarn" class="alert warn hidden"></div>
+  </section>
+
+  <!-- ШАГ 3. Результат -->
+  <section id="resultCard" class="card hidden">
+    <div class="dl">
+      <h2 style="margin:0"><span class="step">3</span>Результат</h2>
+      <span id="shownInfo" class="muted"></span>
+    </div>
+    <div id="resultNote" class="alert warn hidden" style="margin:0 0 14px"></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="row stack-mobile" style="margin-bottom:16px">
+      <button id="dlBtn" class="primary">Скачать Excel</button>
+      <button id="shareBtn" class="hidden">Отправить файл…</button>
+      <button id="dlAllBtn" class="ghost hidden">Скачать всё без фильтров</button>
+    </div>
+    <div class="seg views" id="viewTabs"><button class="on" data-v="groups">Группы</button><button data-v="top">Топ и антитоп</button><button data-v="all">Все занятия</button></div>
+    <details class="fbox" id="filtersBox" open><summary>Фильтры</summary>
+    <div class="filters">
+      <div><label>Статус</label>
+        <div class="seg" id="statusTabs"><button class="on" data-s="">Все</button><button data-s="Прошло">Прошедшие</button><button data-s="Запланировано">Запланированные</button></div>
+      </div>
+      <div><label for="fMaster">Мастер</label><select id="fMaster"></select></div>
+      <div><label for="fBranch">Филиал</label><select id="fBranch"></select></div>
+      <div><label for="fQ">Поиск по занятию</label><input id="fQ" type="search" placeholder="Например: шпагат"></div>
+    </div>
+    </details>
+    <div id="groupsView">
+      <div class="row spread" style="margin-bottom:12px">
+        <p class="muted" id="groupsNote" style="margin:0"></p>
+        <div class="sortbar"><span class="muted">Сортировка:</span>
+          <select id="gSort" aria-label="Сортировка групп">
+            <option value="schedule">День недели и время</option>
+            <option value="name">Название занятия</option>
+            <option value="branch">Филиал</option>
+            <option value="masters">Кто вёл</option>
+            <option value="count">Количество занятий</option>
+            <option value="people">В среднем пришло</option>
+            <option value="fill">Наполняемость</option>
+          </select>
+          <button id="gDir" class="ghost" aria-label="Направление сортировки"></button>
+        </div>
+      </div>
+      <div class="glist" id="glist"></div>
+      <div class="row" style="justify-content:center;margin-top:12px"><button id="gMoreBtn" class="ghost hidden">Показать ещё</button></div>
+    </div>
+    <div id="topView" class="hidden">
+      <div class="row spread" style="margin-bottom:14px">
+        <p class="muted" id="topNote" style="margin:0;max-width:640px"></p>
+        <div class="row">
+          <div class="seg" id="topMode"><button class="on" data-m="groups">Группы</button><button data-m="sessions">Отдельные занятия</button></div>
+          <div class="seg" id="topN"><button data-n="5">5</button><button class="on" data-n="10">10</button><button data-n="20">20</button><button data-n="0">Все</button></div>
+        </div>
+      </div>
+      <div class="tops">
+        <div class="best"><h3>🔝 Самые заполненные</h3><div id="topBest"></div></div>
+        <div class="worst"><h3>⬇ Наименее заполненные</h3><div id="topWorst"></div></div>
+      </div>
+    </div>
+    <div id="allView" class="hidden">
+      <div class="row spread" style="margin-bottom:12px">
+        <div class="chips" id="fmtChips" style="margin:0"></div>
+        <div class="sortbar"><span class="muted">Сортировка:</span>
+          <select id="aSort" aria-label="Сортировка занятий">
+            <option value="date">Дата и время</option>
+            <option value="branch">Филиал</option>
+            <option value="service">Занятие</option>
+            <option value="master">Мастер</option>
+            <option value="format">Формат</option>
+            <option value="signed">Записано</option>
+            <option value="came">Пришли</option>
+            <option value="fill">Наполняемость</option>
+            <option value="status">Статус</option>
+          </select>
+          <button id="aDir" class="ghost" aria-label="Направление сортировки"></button>
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+      <div class="row" style="justify-content:center;margin-top:12px"><button id="moreBtn" class="ghost hidden">Показать ещё</button></div>
+    </div>
+  </section>
+
+  <footer><span class="readonly">🔒 Только отображение: отчёт ничего не изменяет в YClients и не знает паролей от него.</span><br>Данные расшифровываются и обрабатываются на вашем устройстве и никуда не отправляются. ·
+    <a href="https://github.com/livesoulless/yclients-results">GitHub</a> · отчёт, версия 2026-10-27.2</footer>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Настройки
+   ===================================================================== */
+const API_HOSTS = ["https://api.yclients.ru", "https://api.yclients.com"];
+const MIN_INTERVAL = 260;            // мс между запросами (лимит YClients — 5 запросов/с)
+const DEFAULT_TZ = "Europe/Moscow";
+const MAX_DAYS = 400;
+
+// Формат занятия по названию услуги (имеет приоритет). Правьте под свои названия.
+const NB = "(?:^|[^\\p{L}\\d])";     // «начало слова» для кириллицы
+const FORMAT_KEYWORDS = [
+  [new RegExp(NB + "(парн|в пар[еуы]|на двоих|для двоих|pair)", "iu"), "Пара"],
+  [new RegExp(NB + "(индивид|персональн|personal|private)", "iu"), "Индивидуальное"],
+  [new RegExp(NB + "(групп|group)", "iu"), "Группа"],
+];
+
+const FMT_IND = "Индивидуальное", FMT_PAIR = "Пара", FMT_GROUP = "Группа", FMT_EMPTY = "Нет записей";
+const FORMATS = [FMT_IND, FMT_PAIR, FMT_GROUP, FMT_EMPTY];
+const PAST = "Прошло", PLANNED = "Запланировано";
+const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const ATTENDANCE = {"1": "Пришёл", "2": "Подтвердил запись", "0": "Ожидание", "-1": "Не пришёл"};
+
+/* =====================================================================
+   Хранилище (на этом устройстве)
+   ===================================================================== */
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem("ycx." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("ycx." + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem("ycx." + k); } catch {} },
+};
+
+/* =====================================================================
+   Клиент API YClients
+   ===================================================================== */
+class YcError extends Error {}
+class CorsError extends YcError {}
+class TwoFactor extends Error { constructor(uuid, recipient) { super("2fa"); this.uuid = uuid; this.recipient = recipient; } }
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let lastCall = 0;
+
+class Api {
+  constructor(partner, user, base) { this.partner = (partner || "").trim(); this.user = (user || "").trim() || null; this.base = base; }
+  headers() {
+    let auth = "Bearer " + this.partner;
+    if (this.user) auth += ", User " + this.user;
+    return {"Accept": "application/vnd.yclients.v2+json", "Content-Type": "application/json", "Authorization": auth};
+  }
+  async request(method, path, params, body, retries = 4) {
+    // Только чтение: разрешены лишь GET-запросы и вход (POST /auth выдаёт токен и ничего не меняет).
+    if (method !== "GET" && !(method === "POST" && path === "/auth")) throw new YcError("Приложение работает только на чтение.");
+    const url = new URL(this.base.replace(/\/$/, "") + "/api/v1" + path);
+    for (const [k, v] of Object.entries(params || {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+    for (let attempt = 0; ; attempt++) {
+      const wait = MIN_INTERVAL - (Date.now() - lastCall);
+      if (wait > 0) await sleep(wait);
+      lastCall = Date.now();
+      if (state.cancel) throw new YcError("Загрузка остановлена");
+      let resp;
+      try {
+        resp = await fetch(url, {method, headers: this.headers(), body: body ? JSON.stringify(body) : undefined, mode: "cors", cache: "no-store"});
+      } catch (e) {
+        if (attempt < 1 && navigator.onLine !== false) { await sleep(1200); continue; }
+        if (navigator.onLine === false) throw new YcError("Нет подключения к интернету.");
+        throw new CorsError("Браузер не смог связаться с " + url.host + ".");
+      }
+      if ((resp.status === 429 || resp.status >= 500) && attempt < retries) {
+        const ra = Number(resp.headers.get("Retry-After"));
+        await sleep(ra > 0 ? ra * 1000 : 2000 * (attempt + 1));
+        continue;
+      }
+      let data = null;
+      try { data = await resp.json(); } catch { throw new YcError(`YClients вернул неожиданный ответ (HTTP ${resp.status}).`); }
+      const message = errMessage(data, resp.status);
+      if (resp.status === 401 || resp.status === 403)
+        throw new YcError(`Нет доступа: ${message}. Проверьте партнёрский токен, логин/токен пользователя и права сотрудника.`);
+      if (resp.status === 404) { const e = new YcError(`Не найдено (${path}): ${message}`); e.notFound = true; throw e; }
+      if (data && data.success === false) throw new YcError(message);
+      if (!resp.ok) throw new YcError(message);
+      return data || {};
+    }
+  }
+  get(path, params) { return this.request("GET", path, params); }
+
+  async login(login, password, code, uuid) {
+    const payload = {login: login.trim(), password};
+    if (code && uuid) payload["2fa"] = {uuid, secret: code.trim()};
+    const saved = this.user; this.user = null;
+    let body;
+    try { body = await this.request("POST", "/auth", null, payload, 1); } finally { this.user = saved; }
+    const d = body.data || {};
+    if (d.user_token) { this.user = d.user_token; return d.user_token; }
+    if (d.uuid) throw new TwoFactor(d.uuid, (d.transport || {}).recipient);
+    throw new YcError("YClients не вернул токен пользователя.");
+  }
+  async companies() {
+    const out = [];
+    for (let page = 1; page < 50; page++) {
+      const b = await this.get("/companies", {my: 1, count: 200, page});
+      const d = b.data || [];
+      out.push(...d);
+      if (d.length < 200) break;
+    }
+    return out;
+  }
+  async staff(cid) {
+    try { return (await this.get(`/company/${cid}/staff`)).data || []; }
+    catch (e) { if (e instanceof CorsError) throw e; try { return (await this.get(`/staff/${cid}`)).data || []; } catch { return []; } }
+  }
+  async optionalList(path) {
+    try { const d = (await this.get(path)).data; return Array.isArray(d) ? d : d ? [d] : []; }
+    catch (e) { if (e instanceof CorsError) throw e; return []; }
+  }
+  async records(cid, from, to, onPage) {
+    const out = []; let total = null;
+    for (let page = 1; page < 2000; page++) {
+      const b = await this.get(`/records/${cid}`, {start_date: from, end_date: to, page, count: 200});
+      const d = b.data || [];
+      if (b.meta && b.meta.total_count != null) total = Number(b.meta.total_count);
+      out.push(...d);
+      onPage && onPage(out.length, total);
+      if (!d.length || d.length < 200 || (total != null && out.length >= total)) break;
+    }
+    return out;
+  }
+  async activities(cid, from, to, onPage) {
+    const out = [], seen = new Set();
+    for (let page = 1; page < 1000; page++) {
+      let b;
+      try { b = await this.get(`/activity/${cid}/search/`, {from, till: to, page, count: 100}); }
+      catch (e) { if (page === 1 && e.notFound) return []; throw e; }
+      const d = b.data || [];
+      const fresh = d.filter(a => !seen.has(a.id));
+      d.forEach(a => seen.add(a.id));
+      out.push(...fresh);
+      onPage && onPage(out.length);
+      if (!d.length || d.length < 100 || !fresh.length) break;
+    }
+    return out;
+  }
+}
+
+function errMessage(body, status) {
+  if (body && typeof body === "object") {
+    const m = body.meta;
+    if (m && !Array.isArray(m) && typeof m === "object") {
+      if (m.message) return m.message;
+      if (m.errors) return JSON.stringify(m.errors);
+    }
+    if (body.message) return body.message;
+  }
+  return "HTTP " + status;
+}
+
+const CORS_HELP = "Похоже, YClients не разрешает запросы прямо из браузера с этого сайта.\n" +
+  "Решение: один раз создать бесплатный прокси (Cloudflare Worker, ~5 минут — инструкция в README репозитория) " +
+  "и вставить его адрес в поле «Дополнительно: адрес прокси».";
+
+/* =====================================================================
+   Даты: «настенное» время филиала хранится как число мс в UTC-представлении
+   ===================================================================== */
+const naive = (y, mo, d, h = 0, mi = 0) => Date.UTC(y, mo - 1, d, h, mi);
+const dtfCache = {};
+function wallClock(ms, tz) {
+  // мгновение -> «настенное» время в часовом поясе филиала
+  if (typeof tz === "number") { const t = new Date(ms + tz * 3600e3); return naive(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate(), t.getUTCHours(), t.getUTCMinutes()); }
+  let f = dtfCache[tz];
+  if (!f) {
+    try { f = new Intl.DateTimeFormat("en-GB", {timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"}); }
+    catch { return wallClock(ms, tz === DEFAULT_TZ ? 3 : DEFAULT_TZ); }
+    dtfCache[tz] = f;
+  }
+  const p = {}; for (const x of f.formatToParts(new Date(ms))) p[x.type] = x.value;
+  return naive(+p.year, +p.month, +p.day, +p.hour % 24, +p.minute);
+}
+function parseDt(v, tz) {
+  if (v === null || v === undefined || v === "" || v === 0) return null;
+  if (typeof v === "number" || /^\d+$/.test(String(v).trim())) return wallClock(Number(v) * 1000, tz);
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  return m ? naive(+m[1], +m[2], +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+}
+const D = ms => new Date(ms);
+const pad = n => String(n).padStart(2, "0");
+const fmtDate = ms => `${pad(D(ms).getUTCDate())}.${pad(D(ms).getUTCMonth() + 1)}.${D(ms).getUTCFullYear()}`;
+const fmtTime = ms => `${pad(D(ms).getUTCHours())}:${pad(D(ms).getUTCMinutes())}`;
+const weekday = ms => WEEKDAYS[D(ms).getUTCDay()];
+const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const branchTz = c => c.timezone_name || (typeof c.timezone === "number" ? c.timezone : null) || DEFAULT_TZ;
+
+/* =====================================================================
+   Сведение записей в занятия
+   ===================================================================== */
+const int = (v, d = null) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; };
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+
+function detectFormat(title, capacity, people, isActivity) {
+  for (const [re, f] of FORMAT_KEYWORDS) if (title && re.test(title)) return f;
+  if (isActivity && capacity) return capacity === 1 ? FMT_IND : capacity === 2 ? FMT_PAIR : FMT_GROUP;
+  if (people <= 0) return FMT_EMPTY;
+  return people === 1 ? FMT_IND : people === 2 ? FMT_PAIR : FMT_GROUP;
+}
+const attOf = r => { const a = int(r.attendance); return a === null ? (int(r.visit_attendance, 0)) : a; };
+const clientName = c => !c ? "" : (c.display_name || [c.surname, c.name, c.patronymic].filter(Boolean).join(" ")).trim();
+
+function buildDataset(raw, includeClients) {
+  const sessionsOut = [], recordsOut = [];
+  for (const b of raw) {
+    const company = b.company || {};
+    const branch = company.title || `Филиал ${company.id}`;
+    const tz = b.tz || DEFAULT_TZ;
+    const now = wallClock(Date.now(), tz);
+    const staffMap = new Map((b.staff || []).map(s => [int(s.id), s.name]));
+    const catMap = new Map((b.categories || []).map(c => [int(c.id), c.title]));
+    const svcCat = new Map((b.services || []).map(s => [int(s.id), catMap.get(int(s.category_id)) || ""]));
+    const sessions = new Map();
+
+    const add = (key, o) => {
+      const s = {key, branch, recs: [], comment: "", capacity: null, recordsCount: 0, activityId: null, ...o};
+      s.master = o.staffName || staffMap.get(o.staffId) || (o.staffId ? `ID ${o.staffId}` : "Без мастера");
+      s.lengthMin = o.lengthSec ? Math.round(o.lengthSec / 60) : null;
+      sessions.set(key, s); return s;
+    };
+
+    for (const a of b.activities || []) {
+      const svc = a.service || {}, st = a.staff || {};
+      const start = parseDt(a.date, tz) ?? parseDt(a.timestamp, tz);
+      if (start === null) continue;
+      add("a" + int(a.id), {start, lengthSec: int(a.length, 0), service: svc.title || "",
+        category: (svc.category || {}).title || svcCat.get(int(svc.id ?? a.service_id)) || "",
+        staffId: int(st.id ?? a.staff_id), staffName: st.name, isActivity: true,
+        capacity: int(a.capacity), recordsCount: int(a.records_count, 0), activityId: int(a.id), comment: a.comment || ""});
+    }
+    for (const r of b.records || []) {
+      if (r.deleted) continue;
+      const start = parseDt(r.datetime || r.date, tz);
+      if (start === null) continue;
+      const svcs = r.services || [];
+      const title = svcs.map(s => s.title).filter(Boolean).join(", ");
+      const ids = svcs.map(s => int(s.id, 0)).sort((x, y) => x - y);
+      const st = r.staff || {};
+      const staffId = int(r.staff_id ?? st.id);
+      const aid = int(r.activity_id, 0);
+      const base = {start, lengthSec: int(r.length ?? r.seance_length, 0), service: title, category: svcCat.get(ids[0]) || "", staffId, staffName: st.name};
+      const key = aid ? "a" + aid : `r${staffId}|${start}|${ids.join(",")}`;
+      if (!sessions.has(key)) add(key, {...base, isActivity: !!aid, activityId: aid || null});
+      sessions.get(key).recs.push(r);
+    }
+
+    for (const s of sessions.values()) {
+      let signed = 0, came = 0, noshow = 0, waiting = 0, revenue = 0;
+      for (const r of s.recs) {
+        const n = Math.max(int(r.clients_count, 1) || 1, 1), att = attOf(r);
+        signed += n;
+        if (att === 1) came += n; else if (att === -1) noshow += n; else waiting += n;
+        revenue += (r.services || []).reduce((t, x) => t + num(x.cost), 0);
+      }
+      if (s.isActivity) signed = Math.max(signed, s.recordsCount);
+      if (s.capacity == null) { const c = Math.max(0, ...s.recs.map(r => int(r.capacity, 0))); if (c) s.capacity = c; }
+      const past = s.start <= now;
+      const format = detectFormat(s.service, s.capacity, signed, s.isActivity);
+      const id = s.isActivity ? "A" + s.activityId : `R${s.staffId || 0}-${fmtDate(s.start).split(".").reverse().join("")}${fmtTime(s.start).replace(":", "")}`;
+      const row = {
+        id, branch: s.branch, start: s.start, end: s.lengthMin ? s.start + s.lengthMin * 60000 : null, lengthMin: s.lengthMin,
+        category: s.category, service: s.service, master: s.master, format,
+        kind: s.isActivity ? "Групповое событие" : "Индивидуальная запись", status: past ? PAST : PLANNED,
+        capacity: s.capacity, signed, came: past ? came : null, noshow: past ? noshow : null, waiting,
+        fill: s.capacity ? Math.round(signed / s.capacity * 100) : null, revenue: Math.round(revenue * 100) / 100,
+        // «пришло»: по отметкам визита; если в прошедшем занятии отметок нет — считаем записавшихся
+        attended: past ? (came + noshow > 0 ? came : signed) : null,
+      };
+      row.factFill = past && s.capacity ? Math.round(row.attended / s.capacity * 100) : null;
+      sessionsOut.push(row);
+      for (const r of s.recs) {
+        const c = r.client || {};
+        const rec = {
+          sessionId: id, recordId: int(r.id), branch: s.branch, start: s.start,
+          service: (r.services || []).map(x => x.title).filter(Boolean).join(", ") || s.service,
+          master: s.master, format, status: row.status, attendance: ATTENDANCE[String(attOf(r))] || String(attOf(r)),
+          clients: Math.max(int(r.clients_count, 1) || 1, 1),
+          cost: Math.round((r.services || []).reduce((t, x) => t + num(x.cost), 0) * 100) / 100,
+          paid: int(r.paid_full, 0) === 1 ? "Да" : "Нет", online: r.online ? "Онлайн" : "Администратор",
+          created: parseDt(r.create_date, tz),
+        };
+        if (includeClients) { rec.client = clientName(c); rec.phone = c.phone || ""; }
+        recordsOut.push(rec);
+      }
+    }
+  }
+  const order = (a, b) => a.start - b.start || a.branch.localeCompare(b.branch, "ru") || a.master.localeCompare(b.master, "ru");
+  sessionsOut.sort(order); recordsOut.sort(order);
+  return {sessions: sessionsOut, records: recordsOut, includeClients};
+}
+
+function summarize(sessions) {
+  const past = sessions.filter(s => s.status === PAST);
+  const byFormat = {}; FORMATS.forEach(f => byFormat[f] = sessions.filter(s => s.format === f).length);
+  return {total: sessions.length, past: past.length, planned: sessions.length - past.length, byFormat,
+          came: past.reduce((t, s) => t + (s.came || 0), 0)};
+}
+const WD_FULL = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+const WD_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const wdIndex = ms => (D(ms).getUTCDay() + 6) % 7;   // 0 = понедельник
+const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+
+// Группа = одно и то же групповое занятие в одном филиале в один день недели и время
+function buildGroups(sessions) {
+  const m = new Map();
+  for (const s of sessions) {
+    if (s.format !== FMT_GROUP) continue;
+    const wd = wdIndex(s.start), time = fmtTime(s.start), key = `${s.branch}|${s.service}|${wd}|${time}`;
+    if (!m.has(key)) m.set(key, {key, branch: s.branch, service: s.service || "—", category: s.category, wd, time, sessions: [], masters: new Map()});
+    const g = m.get(key);
+    g.sessions.push(s); g.masters.set(s.master, (g.masters.get(s.master) || 0) + 1);
+  }
+  return [...m.values()].map(g => {
+    const past = g.sessions.filter(s => s.status === PAST), planned = g.sessions.filter(s => s.status === PLANNED);
+    const caps = g.sessions.map(s => s.capacity).filter(Boolean);
+    const attended = past.reduce((t, s) => t + (s.attended || 0), 0);
+    const fill = avg(past.map(s => s.factFill).filter(v => v != null));
+    const pFill = avg(planned.map(s => s.fill).filter(v => v != null));
+    const masters = [...g.masters].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru"));
+    return {...g, dayLabel: WD_FULL[g.wd], dayShort: WD_SHORT[g.wd],
+      mastersText: masters.map(([n, c]) => masters.length > 1 ? `${n} (${c})` : n).join(", "),
+      total: g.sessions.length, past: past.length, planned: planned.length,
+      capacity: caps.length ? Math.max(...caps) : null, attended,
+      avgPeople: past.length ? Math.round(attended / past.length * 10) / 10 : null,
+      avgFill: fill == null ? null : Math.round(fill),
+      noshow: past.reduce((t, s) => t + (s.noshow || 0), 0),
+      plannedSigned: planned.reduce((t, s) => t + s.signed, 0),
+      plannedFill: pFill == null ? null : Math.round(pFill),
+      byDates: g.sessions.map(s => `${fmtDate(s.start).slice(0, 5)} — ${s.status === PAST ? s.attended : s.signed + " зап."}${s.capacity ? "/" + s.capacity : ""}`).join("; "),
+    };
+  });
+}
+const bySchedule = (a, b) => a.wd - b.wd || a.time.localeCompare(b.time) || a.branch.localeCompare(b.branch, "ru") || a.service.localeCompare(b.service, "ru");
+function rankGroups(groups) {
+  const rated = groups.filter(g => g.avgFill != null);
+  if (rated.length) return {by: "fill",
+    best: [...rated].sort((a, b) => b.avgFill - a.avgFill || b.avgPeople - a.avgPeople || bySchedule(a, b)),
+    worst: [...rated].sort((a, b) => a.avgFill - b.avgFill || a.avgPeople - b.avgPeople || bySchedule(a, b))};
+  const ppl = groups.filter(g => g.avgPeople != null);   // вместимость неизвестна — сравниваем по числу пришедших
+  return {by: "people",
+    best: [...ppl].sort((a, b) => b.avgPeople - a.avgPeople || bySchedule(a, b)),
+    worst: [...ppl].sort((a, b) => a.avgPeople - b.avgPeople || bySchedule(a, b))};
+}
+
+// Рейтинг отдельных прошедших групповых занятий (конкретная дата и время)
+function rankSessions(sessions) {
+  const past = sessions.filter(s => s.status === PAST && s.format === FMT_GROUP);
+  const rated = past.filter(s => s.factFill != null);
+  const tie = (a, b) => a.start - b.start;
+  if (rated.length) return {by: "fill",
+    best: [...rated].sort((a, b) => b.factFill - a.factFill || (b.attended || 0) - (a.attended || 0) || tie(a, b)),
+    worst: [...rated].sort((a, b) => a.factFill - b.factFill || (a.attended || 0) - (b.attended || 0) || tie(a, b))};
+  return {by: "people",
+    best: [...past].sort((a, b) => (b.attended || 0) - (a.attended || 0) || tie(a, b)),
+    worst: [...past].sort((a, b) => (a.attended || 0) - (b.attended || 0) || tie(a, b))};
+}
+
+function byMaster(sessions) {
+  const m = new Map();
+  for (const s of sessions) {
+    if (!m.has(s.master)) m.set(s.master, {master: s.master, branches: new Set(), total: 0, past: 0, planned: 0,
+      [FMT_IND]: 0, [FMT_PAIR]: 0, [FMT_GROUP]: 0, [FMT_EMPTY]: 0, signed: 0, came: 0, noshow: 0, fills: [], revenue: 0});
+    const a = m.get(s.master);
+    a.branches.add(s.branch); a.total++; s.status === PAST ? a.past++ : a.planned++; a[s.format]++;
+    a.signed += s.signed; a.came += s.came || 0; a.noshow += s.noshow || 0; a.revenue += s.revenue || 0;
+    if (s.format === FMT_GROUP && s.fill != null) a.fills.push(s.fill);
+  }
+  return [...m.values()].map(a => ({...a, branches: [...a.branches].sort().join(", "),
+    avgFill: a.fills.length ? Math.round(a.fills.reduce((x, y) => x + y, 0) / a.fills.length) : null}))
+    .sort((x, y) => y.total - x.total || x.master.localeCompare(y.master, "ru"));
+}
+function byMonth(sessions) {
+  const m = new Map();
+  for (const s of sessions) {
+    const d = D(s.start), key = d.getUTCFullYear() * 100 + d.getUTCMonth();
+    if (!m.has(key)) m.set(key, {label: `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`, key, total: 0,
+      [FMT_IND]: 0, [FMT_PAIR]: 0, [FMT_GROUP]: 0, [FMT_EMPTY]: 0, signed: 0, came: 0, noshow: 0});
+    const a = m.get(key);
+    a.total++; a[s.format]++; a.signed += s.signed; a.came += s.came || 0; a.noshow += s.noshow || 0;
+  }
+  return [...m.values()].sort((a, b) => a.key - b.key);
+}
+
+/* =====================================================================
+   Генератор .xlsx (без внешних библиотек)
+   ===================================================================== */
+const XL = (() => {
+  const enc = new TextEncoder();
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  async function deflate(u8) {
+    if (typeof CompressionStream === "undefined") return null;
+    try {
+      const cs = new CompressionStream("deflate-raw");
+      const out = await new Response(new Blob([u8]).stream().pipeThrough(cs)).arrayBuffer();
+      return new Uint8Array(out);
+    } catch { return null; }
+  }
+  async function zip(files) {
+    const now = new Date();
+    const dtime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const ddate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const parts = [], central = []; let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+      const def = await deflate(data);
+      const useDef = def && def.length < data.length;
+      const body = useDef ? def : data, method = useDef ? 8 : 0;
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, method, true);
+      lh.setUint16(10, dtime, true); lh.setUint16(12, ddate, true); lh.setUint32(14, crc, true);
+      lh.setUint32(18, body.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+      parts.push(new Uint8Array(lh.buffer), name, body);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, method, true);
+      ch.setUint16(12, dtime, true); ch.setUint16(14, ddate, true); ch.setUint32(16, crc, true); ch.setUint32(20, body.length, true);
+      ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+      central.push(new Uint8Array(ch.buffer), name);
+      offset += 30 + name.length + body.length;
+    }
+    const cdSize = central.reduce((t, p) => t + p.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, new Uint8Array(end.buffer)], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+
+  // стили: индексы cellXfs
+  const S = {text: 2, date: 3, time: 4, money: 5, datetime: 6, header: 1, bold: 14, title: 15, wrap: 16};
+  const FILL_BY_VALUE = {"Запланировано": 7, "Прошло": 8, "Индивидуальное": 9, "Пара": 10, "Группа": 11,
+    "Нет записей": 12, "Пришёл": 11, "Не пришёл": 13};
+  const fills = ["1F2A44", "E3F0FF", "F1F2F4", "FCE9D9", "E8E1F7", "DFF2E4", "F4F4F4", "FBE0E0"];
+  const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="4"><numFmt numFmtId="164" formatCode="dd.mm.yyyy"/><numFmt numFmtId="165" formatCode="hh:mm"/><numFmt numFmtId="166" formatCode="#,##0"/><numFmt numFmtId="167" formatCode="dd.mm.yyyy hh:mm"/></numFmts>
+<fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font></fonts>
+<fills count="${2 + fills.length}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${fills.map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join("")}</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD9DCE3"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="17">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="167" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+${[3, 4, 5, 6, 7, 8, 9].map(f => `<xf numFmtId="0" fontId="0" fillId="${f}" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>`).join("\n")}
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  const esc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const col = n => { let s = ""; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+  const EPOCH = Date.UTC(1899, 11, 30);
+  const serial = ms => (ms - EPOCH) / 86400000;
+
+  function cell(ref, v, type) {
+    if (v === null || v === undefined || v === "") return "";
+    if (type === "date") return `<c r="${ref}" s="${S.date}"><v>${Math.floor(serial(v))}</v></c>`;
+    if (type === "datetime") return `<c r="${ref}" s="${S.datetime}"><v>${serial(v)}</v></c>`;
+    if (type === "time") { const d = D(v); return `<c r="${ref}" s="${S.time}"><v>${(d.getUTCHours() * 60 + d.getUTCMinutes()) / 1440}</v></c>`; }
+    if (typeof v === "number") return `<c r="${ref}" s="${type === "money" ? S.money : S.text}"><v>${v}</v></c>`;
+    const style = FILL_BY_VALUE[v] || S.text;
+    return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+  }
+  function tableSheet(columns, rows) {
+    const cols = columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.w}" customWidth="1"/>`).join("");
+    const head = `<row r="1" ht="32" customHeight="1">${columns.map((c, i) => `<c r="${col(i)}1" s="${S.header}" t="inlineStr"><is><t>${esc(c.h)}</t></is></c>`).join("")}</row>`;
+    const body = rows.map((r, ri) => `<row r="${ri + 2}">${columns.map((c, ci) => cell(col(ci) + (ri + 2), typeof c.v === "function" ? c.v(r) : r[c.v], c.t)).join("")}</row>`).join("");
+    const ref = `A1:${col(columns.length - 1)}${rows.length + 1}`;
+    const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${rows.length ? `<autoFilter ref="${ref}"/>` : ""}</worksheet>`;
+    return {xml, filterRef: rows.length ? ref : null};
+  }
+  function infoSheet(pairs) {
+    const rows = pairs.map(([a, b], i) => {
+      const r = i + 1, sa = i === 0 ? S.title : (a ? S.bold : S.text);
+      return `<row r="${r}">${a ? `<c r="A${r}" s="${sa}" t="inlineStr"><is><t>${esc(a)}</t></is></c>` : ""}${b !== "" && b != null ? (typeof b === "number" ? `<c r="B${r}" s="${S.wrap}"><v>${b}</v></c>` : `<c r="B${r}" s="${S.wrap}" t="inlineStr"><is><t>${esc(b)}</t></is></c>`) : ""}</row>`;
+    }).join("");
+    return {xml: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="30" customWidth="1"/><col min="2" max="2" width="90" customWidth="1"/></cols><sheetData>${rows}</sheetData></worksheet>`, filterRef: null};
+  }
+  async function workbook(sheets) {
+    const files = [];
+    files.push({name: "[Content_Types].xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`});
+    files.push({name: "_rels/.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`});
+    const defined = sheets.map((s, i) => s.filterRef ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${esc(s.name)}'!${s.filterRef.replace(/([A-Z]+)(\d+)/g, "$$$1$$$2")}</definedName>` : "").join("");
+    files.push({name: "xl/workbook.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>${defined ? `<definedNames>${defined}</definedNames>` : ""}</workbook>`});
+    files.push({name: "xl/_rels/workbook.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`});
+    files.push({name: "xl/styles.xml", data: STYLES});
+    sheets.forEach((s, i) => files.push({name: `xl/worksheets/sheet${i + 1}.xml`, data: s.xml}));
+    return zip(files);
+  }
+  return {tableSheet, infoSheet, workbook};
+})();
+
+async function buildExcel(ds, params, groupSessions) {
+  const groups = buildGroups(groupSessions || ds.sessions).sort(bySchedule);
+  const {best, worst} = rankGroups(groups);
+  const groupCols = [
+    {h: "День недели", v: "dayLabel", w: 13}, {h: "Время", v: "time", w: 7}, {h: "Филиал", v: "branch", w: 24},
+    {h: "Занятие", v: "service", w: 30}, {h: "Направление", v: "category", w: 18}, {h: "Кто вёл", v: "mastersText", w: 32},
+    {h: "Занятий в периоде", v: "total", w: 10}, {h: "Прошло", v: "past", w: 8}, {h: "Запланировано", v: "planned", w: 11},
+    {h: "Мест", v: "capacity", w: 7}, {h: "Пришло всего", v: "attended", w: 9}, {h: "В среднем пришло", v: "avgPeople", w: 10},
+    {h: "Средняя наполняемость, %", v: "avgFill", w: 13}, {h: "Не пришли (всего)", v: "noshow", w: 10},
+    {h: "Записано на будущие", v: "plannedSigned", w: 10}, {h: "Наполняемость будущих, %", v: "plannedFill", w: 13},
+    {h: "По датам (пришло/мест)", v: "byDates", w: 70},
+  ];
+  const rankCols = [
+    {h: "Место", v: "rank", w: 7}, {h: "Занятие", v: "service", w: 30}, {h: "День недели", v: "dayLabel", w: 13},
+    {h: "Время", v: "time", w: 7}, {h: "Филиал", v: "branch", w: 24}, {h: "Кто вёл", v: "mastersText", w: 32},
+    {h: "Прошло занятий", v: "past", w: 9}, {h: "Мест", v: "capacity", w: 7}, {h: "В среднем пришло", v: "avgPeople", w: 10},
+    {h: "Средняя наполняемость, %", v: "avgFill", w: 13}, {h: "Пришло всего", v: "attended", w: 9},
+  ];
+  const ranked = list => list.slice(0, 20).map((g, i) => ({...g, rank: i + 1}));
+  const allRanked = list => list.map((g, i) => ({...g, rank: i + 1}));
+  const sRank = rankSessions(groupSessions || ds.sessions);
+  const sRankCols = [
+    {h: "Место", v: "rank", w: 7}, {h: "Дата", v: "start", t: "date", w: 11}, {h: "День", v: r => weekday(r.start), w: 6},
+    {h: "Начало", v: "start", t: "time", w: 8}, {h: "Филиал", v: "branch", w: 24}, {h: "Занятие", v: "service", w: 30},
+    {h: "Мастер", v: "master", w: 22}, {h: "Мест", v: "capacity", w: 7}, {h: "Записано", v: "signed", w: 9},
+    {h: "Пришло", v: "attended", w: 8}, {h: "Наполняемость, %", v: "factFill", w: 12},
+  ];
+  const sessionCols = [
+    {h: "Дата", v: "start", t: "date", w: 11}, {h: "День", v: r => weekday(r.start), w: 6},
+    {h: "Начало", v: "start", t: "time", w: 8}, {h: "Конец", v: "end", t: "time", w: 8},
+    {h: "Длит., мин", v: "lengthMin", w: 9}, {h: "Статус", v: "status", w: 14}, {h: "Филиал", v: "branch", w: 24},
+    {h: "Направление", v: "category", w: 20}, {h: "Занятие (услуга)", v: "service", w: 32}, {h: "Мастер", v: "master", w: 22},
+    {h: "Формат", v: "format", w: 15}, {h: "Тип в YClients", v: "kind", w: 20}, {h: "Мест", v: "capacity", w: 7},
+    {h: "Записано", v: "signed", w: 9}, {h: "Пришли", v: "came", w: 8}, {h: "Не пришли", v: "noshow", w: 9},
+    {h: "Заполн., %", v: "fill", w: 9}, {h: "Сумма по записям, ₽", v: "revenue", t: "money", w: 12}, {h: "ID", v: "id", w: 14},
+  ];
+  const masterCols = [
+    {h: "Мастер", v: "master", w: 24}, {h: "Филиалы", v: "branches", w: 30}, {h: "Всего занятий", v: "total", w: 9},
+    {h: "Прошло", v: "past", w: 8}, {h: "Запланировано", v: "planned", w: 11}, {h: "Индивидуальных", v: FMT_IND, w: 12},
+    {h: "Пар", v: FMT_PAIR, w: 7}, {h: "Групп", v: FMT_GROUP, w: 7}, {h: "Без записей", v: FMT_EMPTY, w: 9},
+    {h: "Записано клиентов", v: "signed", w: 10}, {h: "Пришли", v: "came", w: 8}, {h: "Не пришли", v: "noshow", w: 9},
+    {h: "Ср. заполняемость групп, %", v: "avgFill", w: 13}, {h: "Сумма по записям, ₽", v: r => Math.round(r.revenue), t: "money", w: 13},
+  ];
+  const monthCols = [
+    {h: "Месяц", v: "label", w: 16}, {h: "Всего занятий", v: "total", w: 9}, {h: "Индивидуальных", v: FMT_IND, w: 12},
+    {h: "Пар", v: FMT_PAIR, w: 7}, {h: "Групп", v: FMT_GROUP, w: 7}, {h: "Без записей", v: FMT_EMPTY, w: 9},
+    {h: "Записано клиентов", v: "signed", w: 10}, {h: "Пришли", v: "came", w: 8}, {h: "Не пришли", v: "noshow", w: 9},
+  ];
+  let recCols = [
+    {h: "Дата", v: "start", t: "date", w: 11}, {h: "Начало", v: "start", t: "time", w: 8}, {h: "Статус занятия", v: "status", w: 14},
+    {h: "Филиал", v: "branch", w: 24}, {h: "Услуга", v: "service", w: 30}, {h: "Мастер", v: "master", w: 22}, {h: "Формат", v: "format", w: 15},
+  ];
+  if (ds.includeClients) recCols.push({h: "Клиент", v: "client", w: 26}, {h: "Телефон", v: "phone", w: 15});
+  recCols.push({h: "Визит", v: "attendance", w: 17}, {h: "Человек", v: "clients", w: 8}, {h: "Стоимость, ₽", v: "cost", t: "money", w: 11},
+    {h: "Оплачено", v: "paid", w: 9}, {h: "Кто записал", v: "online", w: 14}, {h: "Запись создана", v: "created", t: "datetime", w: 16},
+    {h: "ID записи", v: "recordId", w: 11}, {h: "ID занятия", v: "sessionId", w: 14});
+
+  const now = new Date();
+  const info = [
+    ["Выгрузка из YClients", ""], ["Создано", `${isoLocal(now).split("-").reverse().join(".")} ${pad(now.getHours())}:${pad(now.getMinutes())}`],
+    ["Период", params.period], ["Филиалы", params.branches], ["Фильтры", params.filters || "нет"],
+    ["Занятий в файле", ds.sessions.length], ["Записей клиентов", ds.records.length], ["", ""],
+    ["Как считается формат", ""],
+    ["1. По названию услуги", "«парн…», «в паре», «для двоих» → Пара; «индивид…», «персональн…» → Индивидуальное; «групп…» → Группа"],
+    ["2. Групповое событие", "по вместимости: 1 место → Индивидуальное, 2 → Пара, 3+ → Группа"],
+    ["3. Обычная запись", "по числу клиентов у мастера в одно время: 1 → Индивидуальное, 2 → Пара, 3+ → Группа"],
+    ["Статус", "«Прошло» — время начала уже наступило; «Запланировано» — в будущем"],
+    ["Пришли / Не пришли", "по отметке визита в журнале YClients (только для прошедших занятий)"],
+    ["", ""],
+    ["Группы", ""],
+    ["Группа", "одно и то же групповое занятие в одном филиале в один день недели и время (например, «Здоровая спина», чт 09:00)"],
+    ["Пришло", "по отметкам визита; если в прошедшем занятии отметок нет — считаются записавшиеся"],
+    ["Средняя наполняемость", "пришло ÷ мест, в среднем по прошедшим занятиям группы за период"],
+    ["Топ и наименее заполненные", "по средней наполняемости (если вместимость неизвестна — по среднему числу пришедших); учитываются группы с прошедшими занятиями (до 20 строк)"],
+    ["", ""],
+    ["Только чтение", "Приложение только читает данные YClients и ничего в них не изменяет и не удаляет"],
+  ];
+  return XL.workbook([
+    {name: "Группы", ...XL.tableSheet(groupCols, groups)},
+    {name: "Топ групп", ...XL.tableSheet(rankCols, ranked(best))},
+    {name: "Наименее заполненные", ...XL.tableSheet(rankCols, ranked(worst))},
+    {name: "Рейтинг групп (все)", ...XL.tableSheet(rankCols, allRanked(best))},
+    {name: "Рейтинг занятий (все)", ...XL.tableSheet(sRankCols, allRanked(sRank.best))},
+    {name: "Занятия", ...XL.tableSheet(sessionCols, ds.sessions)},
+    {name: "По мастерам", ...XL.tableSheet(masterCols, byMaster(ds.sessions))},
+    {name: "По месяцам", ...XL.tableSheet(monthCols, byMonth(ds.sessions))},
+    {name: "Записи клиентов", ...XL.tableSheet(recCols, ds.records)},
+    {name: "Параметры", ...XL.infoSheet(info)},
+  ]);
+}
+
+/* =====================================================================
+   Демо-данные (в формате ответов API)
+   ===================================================================== */
+const Demo = (() => {
+  const BRANCHES = [{id: 900001, title: "Демо-студия «Центр»", city: "Москва", address: "ул. Примерная, 1", timezone_name: DEFAULT_TZ},
+                    {id: 900002, title: "Демо-студия «Север»", city: "Москва", address: "пр. Тестовый, 15", timezone_name: DEFAULT_TZ}];
+  const MASTERS = [[5001, "Анна Соколова"], [5002, "Мария Лебедева"], [5003, "Екатерина Орлова"], [5004, "Дарья Козлова"], [5005, "Ольга Новикова"], [5006, "Ирина Морозова"]];
+  const CATS = {10: "Стретчинг", 11: "Пилатес", 12: "Персональные тренировки"};
+  const GROUP = [[101, "Стретчинг: всё тело", 10], [102, "Растяжка на шпагат", 10], [103, "Здоровая спина", 10], [104, "Пилатес на матах", 11]];
+  const IND = [201, "Персональная тренировка", 12], PAIR = [202, "Парная тренировка", 12];
+  const FIRST = ["Алина", "Виктория", "Полина", "Ксения", "Юлия", "Наталья", "Светлана", "Елена"], LAST = ["Иванова", "Петрова", "Смирнова", "Кузнецова", "Попова", "Волкова"];
+  const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const iso = ms => { const d = D(ms); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00+03:00`; };
+  function generate(from, to, ids) {
+    const now = wallClock(Date.now(), DEFAULT_TZ);
+    const [y0, m0, d0] = from.split("-").map(Number), [y1, m1, d1] = to.split("-").map(Number);
+    const out = [];
+    for (const b of BRANCHES) {
+      if (ids && !ids.includes(b.id)) continue;
+      const r = rng(b.id), pick = a => a[Math.floor(r() * a.length)];
+      const masters = b.id === 900001 ? MASTERS.slice(0, 4) : MASTERS.slice(2);
+      const activities = [], records = []; let rid = b.id * 1000, aid = b.id * 100;
+      const client = () => ({id: Math.floor(r() * 99999), display_name: `${pick(FIRST)} ${pick(LAST)}`, phone: "+7900" + String(Math.floor(r() * 1e7)).padStart(7, "0")});
+      const att = st => st > now ? pick([0, 0, 2]) : (r() < 0.88 ? 1 : -1);
+      // постоянное расписание: день недели + час -> занятие, основной мастер, вместимость, популярность
+      const schedule = {};
+      for (let wd = 0; wd < 7; wd++) for (const h of [9, 11, 18, 19, 20]) {
+        if (r() < 0.4) continue;
+        schedule[wd + "_" + h] = {g: pick(GROUP), m: pick(masters), cap: pick([8, 10, 12]), pop: 0.2 + r() * 0.8};
+      }
+      if (b.id === 900001) schedule["4_9"] = {g: GROUP[2], m: masters[0], cap: 10, pop: 0.75};  // «Здоровая спина», чт 09:00
+      for (let day = naive(y0, m0, d0); day <= naive(y1, m1, d1); day += 86400000) {
+        for (const h of [9, 11, 18, 19, 20]) {
+          const slot = schedule[D(day).getUTCDay() + "_" + h];
+          if (!slot) continue;
+          const [sid, title, cat] = slot.g, [mid, mname] = r() < 0.15 ? pick(masters) : slot.m, start = day + h * 3600e3, cap = slot.cap;
+          let n = Math.max(0, Math.min(cap, Math.round(cap * slot.pop + (r() - 0.5) * 4)));
+          if (start > now) n = Math.round(n * (0.5 + r() * 0.4));
+          aid++;
+          activities.push({id: aid, service_id: sid, staff_id: mid, date: iso(start).slice(0, 19).replace("T", " "), length: 3300, capacity: cap, records_count: n,
+            service: {id: sid, title, category: {id: cat, title: CATS[cat]}}, staff: {id: mid, name: mname}});
+          for (let i = 0; i < n; i++) records.push({id: ++rid, staff_id: mid, activity_id: aid, services: [{id: sid, title, cost: pick([0, 1200, 1500])}],
+            staff: {id: mid, name: mname}, client: client(), clients_count: 1, datetime: iso(start), length: 3300, attendance: att(start),
+            paid_full: pick([0, 1, 1]), online: r() < 0.7, create_date: iso(start - Math.ceil(r() * 10) * 86400000)});
+        }
+        for (const h of [10, 13, 15, 17]) {
+          if (r() < 0.55) continue;
+          const pair = r() < 0.3, [sid, title] = pair ? PAIR : IND, [mid, mname] = pick(masters), start = day + h * 3600e3;
+          for (let i = 0; i < (pair ? 2 : 1); i++) records.push({id: ++rid, staff_id: mid, activity_id: 0, services: [{id: sid, title, cost: pair ? 2500 : 4000}],
+            staff: {id: mid, name: mname}, client: client(), clients_count: 1, datetime: iso(start), length: 3600, attendance: att(start),
+            paid_full: 1, online: r() < 0.5, create_date: iso(start - Math.ceil(r() * 14) * 86400000)});
+        }
+      }
+      out.push({company: b, tz: DEFAULT_TZ, activities, records, staff: masters.map(([id, name]) => ({id, name})),
+        services: [...GROUP, IND, PAIR].map(([id, title, category_id]) => ({id, title, category_id})),
+        categories: Object.entries(CATS).map(([id, title]) => ({id: +id, title}))});
+    }
+    return out;
+  }
+  return {BRANCHES, generate};
+})();
+
+/* =====================================================================
+   Интерфейс
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const show = (el, on = true) => el.classList.toggle("hidden", !on);
+const msg = (el, text) => { el.textContent = text || ""; show(el, !!text); };
+const escH = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const isTouch = matchMedia("(pointer: coarse)").matches;
+
+const state = {api: null, demo: false, companies: [], ds: null, params: null, cancel: false, busy: false};
+const filt = {status: "", formats: new Set(), master: "", branch: "", q: ""};
+let shownLimit = 200, mode = "pwd", twofaUuid = null;
+
+$$("[data-tab]").forEach(b => b.onclick = () => {
+  mode = b.dataset.tab;
+  $$("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  $$("[data-pane]").forEach(p => show(p, p.dataset.pane === mode));
+});
+
+function bases() {
+  const proxy = $("#proxy").value.trim().replace(/\/+$/, "");
+  if (proxy) return [proxy];
+  const saved = store.get("base");
+  return saved ? [saved, ...API_HOSTS.filter(h => h !== saved)] : API_HOSTS;
+}
+
+async function connectApi(partner, user, loginData) {
+  let lastErr;
+  for (const base of bases()) {
+    const api = new Api(partner, user, base);
+    try {
+      if (!api.user) await api.login(loginData.login, loginData.password, loginData.code, loginData.uuid);
+      const companies = await api.companies();
+      store.set("base", base);
+      return {api, companies};
+    } catch (e) {
+      lastErr = e;
+      if (!(e instanceof CorsError)) throw e;   // настоящая ошибка YClients — дальше не пробуем
+    }
+  }
+  throw lastErr;
+}
+
+function errorText(e) {
+  if (e instanceof CorsError) return e.message + "\n" + ($("#proxy").value.trim() ? "Проверьте адрес прокси." : CORS_HELP);
+  return e.message || String(e);
+}
+
+$("#connectBtn").onclick = async () => {
+  msg($("#connectErr"));
+  const partner = $("#partner").value.trim();
+  if (!partner) return msg($("#connectErr"), "Укажите партнёрский токен (API-ключ разработчика YClients).");
+  const user = mode === "token" ? $("#usertoken").value.trim() : "";
+  const loginData = {login: $("#login").value, password: $("#password").value, code: $("#code").value, uuid: twofaUuid};
+  if (mode === "token" && !user) return msg($("#connectErr"), "Вставьте токен пользователя.");
+  if (mode === "pwd" && (!loginData.login.trim() || !loginData.password)) return msg($("#connectErr"), "Укажите логин и пароль.");
+  const btn = $("#connectBtn"); btn.disabled = true; btn.textContent = "Подключаюсь…";
+  try {
+    const {api, companies} = await connectApi(partner, user, loginData);
+    if (!companies.length) throw new YcError("Подключение прошло, но YClients не вернул ни одного филиала. Проверьте доступы пользователя.");
+    if ($("#remember").checked) store.set("auth", {partner: api.partner, user: api.user, login: mode === "pwd" ? loginData.login.trim() : ""});
+    store.set("proxy", $("#proxy").value.trim());
+    state.api = api; state.demo = false;
+    onConnected(companies);
+  } catch (e) {
+    if (e instanceof TwoFactor) {
+      twofaUuid = e.uuid; show($("#codeBox")); $("#code").focus();
+      msg($("#connectErr"), `Введите код подтверждения, отправленный на ${e.recipient || "вашу почту"}, и нажмите «Подключиться» ещё раз.`);
+    } else msg($("#connectErr"), errorText(e));
+  } finally { btn.disabled = false; btn.textContent = "Подключиться"; }
+};
+
+$("#savedBtn").onclick = async () => {
+  const a = store.get("auth"); if (!a) return;
+  msg($("#connectErr")); $("#savedBtn").disabled = true;
+  try {
+    const {api, companies} = await connectApi(a.partner, a.user, {});
+    state.api = api; state.demo = false; onConnected(companies);
+  } catch (e) { msg($("#connectErr"), "Сохранённый вход не сработал: " + errorText(e)); }
+  finally { $("#savedBtn").disabled = false; }
+};
+$("#demoBtn").onclick = () => { state.api = null; state.demo = true; onConnected(Demo.BRANCHES); };
+$("#demoBtn2").onclick = () => $("#demoBtn").onclick();
+function setSource(src) {
+  $$("#srcTabs button").forEach(b => b.classList.toggle("on", b.dataset.src === src));
+  show($("#cloudPane"), src === "cloud"); show($("#filePane"), src === "file"); show($("#journalPane"), src === "journal"); show($("#apiPane"), false);
+}
+$$("#srcTabs button").forEach(b => b.onclick = () => setSource(b.dataset.src));
+
+/* =====================================================================
+   Режим «Файл из YClients»: чтение выгрузки записей (.xlsx / .csv / html-xls)
+   ===================================================================== */
+const Importer = (() => {
+  const norm = v => String(v ?? "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+  const str = v => v == null ? "" : String(v).trim();
+  const ALL = (el, tag) => [...el.getElementsByTagNameNS("*", tag)];
+  const xml = t => new DOMParser().parseFromString(t, "application/xml");
+
+  async function unzip(buf) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf);
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error("Файл повреждён или это не Excel.");
+    const count = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+    const files = {};
+    for (let i = 0; i < count; i++) {
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+      const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+      files[new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen))] = {method, csize, lho};
+      p += 46 + nlen + elen + clen;
+    }
+    return {
+      names: Object.keys(files),
+      async read(name) {
+        const f = files[name]; if (!f) return null;
+        const start = f.lho + 30 + dv.getUint16(f.lho + 26, true) + dv.getUint16(f.lho + 28, true);
+        const data = u8.subarray(start, start + f.csize);
+        if (f.method === 0) return new TextDecoder().decode(data);
+        if (typeof DecompressionStream === "undefined") throw new Error("Браузер слишком старый для чтения .xlsx. Обновите iOS/браузер или сохраните файл как .csv.");
+        const out = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+        return new TextDecoder().decode(out);
+      },
+    };
+  }
+  const colIndex = ref => { let n = 0; for (const ch of ref.replace(/\d+/g, "")) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
+
+  async function readXlsx(buf) {
+    const z = await unzip(buf);
+    const ssText = await z.read("xl/sharedStrings.xml");
+    const ss = ssText ? ALL(xml(ssText), "si").map(si => ALL(si, "t").filter(t => !t.parentNode || t.parentNode.localName !== "rPh").map(t => t.textContent).join("")) : [];
+    let target = null;
+    const wb = await z.read("xl/workbook.xml"), rels = await z.read("xl/_rels/workbook.xml.rels");
+    if (wb && rels) {
+      const first = ALL(xml(wb), "sheet")[0];
+      const rid = first && (first.getAttribute("r:id") || first.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id"));
+      const rel = ALL(xml(rels), "Relationship").find(r => r.getAttribute("Id") === rid);
+      if (rel) { const t = rel.getAttribute("Target"); target = t.startsWith("/") ? t.slice(1) : "xl/" + t.replace(/^\.\//, ""); }
+    }
+    if (!target || !z.names.includes(target)) target = z.names.filter(n => /^xl\/worksheets\/[^/]+\.xml$/i.test(n)).sort()[0];
+    if (!target) throw new Error("В файле не нашлось листа с данными.");
+    const doc = xml(await z.read(target));
+    const rows = [];
+    for (const row of ALL(doc, "row")) {
+      const ri = row.getAttribute("r") ? +row.getAttribute("r") - 1 : rows.length;
+      const arr = [];
+      for (const c of ALL(row, "c")) {
+        const ref = c.getAttribute("r"), ci = ref ? colIndex(ref) : arr.length, t = c.getAttribute("t");
+        const vEl = ALL(c, "v")[0], v = vEl ? vEl.textContent : null;
+        let val = null;
+        if (t === "s") val = ss[+v] ?? "";
+        else if (t === "inlineStr") val = ALL(c, "t").map(x => x.textContent).join("");
+        else if (t === "str" || t === "e" || t === "d") val = v ?? "";
+        else if (t === "b") val = v === "1";
+        else if (v != null && v !== "") val = Number(v);
+        arr[ci] = val;
+      }
+      rows[ri] = arr;
+    }
+    return Array.from(rows, r => r || []);
+  }
+  function readHtml(text) {
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const tables = [...doc.querySelectorAll("table")];
+    if (!tables.length) throw new Error("В файле не найдена таблица.");
+    const t = tables.sort((a, b) => b.rows.length - a.rows.length)[0];
+    return [...t.rows].map(r => [...r.cells].map(c => c.textContent.replace(/\s+/g, " ").trim()));
+  }
+  function readCsv(text) {
+    const first = text.split(/\r?\n/, 1)[0] || "";
+    const delim = [";", "\t", ","].map(d => [d, first.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+    const rows = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  function decodeText(u8) {
+    let t = new TextDecoder("utf-8").decode(u8);
+    if ((t.match(/\uFFFD/g) || []).length > 3) { try { t = new TextDecoder("windows-1251").decode(u8); } catch {} }
+    return t.replace(/^\uFEFF/, "");
+  }
+  async function readFile(file) {
+    const buf = await file.arrayBuffer(), u8 = new Uint8Array(buf);
+    if (u8[0] === 0x50 && u8[1] === 0x4B) return readXlsx(buf);
+    if (u8[0] === 0xD0 && u8[1] === 0xCF) throw new Error("Это старый формат .xls. Откройте файл в Excel или Numbers и сохраните как .xlsx (или .csv), затем выберите его снова.");
+    const text = decodeText(u8);
+    if (/<table/i.test(text.slice(0, 20000))) return readHtml(text);
+    return readCsv(text);
+  }
+
+  // --- поля и их автоопределение по заголовкам
+  const FIELDS = [
+    {k: "date", label: "Дата визита", req: true, kw: [/дата.*(визит|сеанс|запис|заняти)/, /^дата( и время)?$/, /дата\/время|дата и время/, /^дата/], not: /созд|рожд|измен|оплат|отмен/},
+    {k: "time", label: "Время", kw: [/^время/, /время (визит|сеанс|начал|заняти)/, /^начало/], not: /созд|измен/},
+    {k: "branch", label: "Филиал", kw: [/филиал|компани|салон|студи|локаци/]},
+    {k: "service", label: "Занятие (услуга)", req: true, kw: [/^услуг/, /услуг|событи|заняти/, /название/], not: /филиал|компани|категор|кол-?во|количеств|стоимост|сумм/},
+    {k: "staff", label: "Мастер", req: true, kw: [/сотрудник|мастер|специалист|тренер|исполнит|преподават/], not: /созд|запис[ал]/},
+    {k: "status", label: "Статус визита", kw: [/статус/, /посещ|явк/, /^визит$/], not: /оплат/},
+    {k: "phone", label: "Телефон клиента", kw: [/телефон/]},
+    {k: "capacity", label: "Мест", kw: [/мест|вместим/]},
+    {k: "cost", label: "Стоимость", kw: [/стоимост|сумм|цена/]},
+    {k: "category", label: "Категория", kw: [/категори|направлен/]},
+    {k: "client", label: "Клиент", kw: [/^клиент|фио|^имя/, /клиент/], not: /статус|телефон|кол-?во|новый/},
+  ];
+  function detectHeader(rows) {
+    let best = -1, bestScore = 0;
+    for (let i = 0; i < Math.min(rows.length, 30); i++) {
+      const cells = (rows[i] || []).map(norm).filter(Boolean);
+      const score = FIELDS.filter(f => cells.some(c => f.kw.some(re => re.test(c)) && !(f.not && f.not.test(c)))).length;
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    return bestScore >= 2 ? best : -1;
+  }
+  function autoMap(headers) {
+    const used = new Set(), map = {};
+    const H = headers.map(norm);
+    for (const f of FIELDS) {
+      map[f.k] = null;
+      outer: for (const re of f.kw) for (let i = 0; i < H.length; i++) {
+        if (used.has(i) || !H[i] || !re.test(H[i]) || (f.not && f.not.test(H[i]))) continue;
+        map[f.k] = i; used.add(i); break outer;
+      }
+    }
+    return map;
+  }
+
+  // --- значения
+  const MON = {янв: 1, фев: 2, мар: 3, апр: 4, мая: 5, май: 5, июн: 6, июл: 7, авг: 8, сен: 9, окт: 10, ноя: 11, дек: 12};
+  function parseDate(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "number" && v > 20000 && v < 80000) {
+      const ms = Math.round((v - 25569) * 86400000), d = new Date(ms);
+      return {y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), hasTime: v % 1 > 1e-6};
+    }
+    const s = norm(v); let m;
+    if ((m = s.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})(?:[ ,t]+(\d{1,2}):(\d{2}))?/))) return {y: +m[3] < 100 ? 2000 + +m[3] : +m[3], m: +m[2], d: +m[1], h: +(m[4] || 0), mi: +(m[5] || 0), hasTime: !!m[4]};
+    if ((m = s.match(/(\d{4})-(\d{2})-(\d{2})(?:[ t](\d{1,2}):(\d{2}))?/))) return {y: +m[1], m: +m[2], d: +m[3], h: +(m[4] || 0), mi: +(m[5] || 0), hasTime: !!m[4]};
+    if ((m = s.match(/(\d{1,2})\s+(янв|фев|мар|апр|мая|май|июн|июл|авг|сен|окт|ноя|дек)\S*\s+(\d{4})(?:\D+(\d{1,2}):(\d{2}))?/))) return {y: +m[3], m: MON[m[2]], d: +m[1], h: +(m[4] || 0), mi: +(m[5] || 0), hasTime: !!m[4]};
+    return null;
+  }
+  function parseTime(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") { const f = v % 1, min = Math.round(f * 1440); return {h: Math.floor(min / 60) % 24, mi: min % 60}; }
+    const m = String(v).match(/(\d{1,2})[:.](\d{2})(?:\s*[-–—]\s*(\d{1,2})[:.](\d{2}))?/);
+    if (!m) return null;
+    const t = {h: +m[1], mi: +m[2]};
+    if (m[3]) { const len = (+m[3] * 60 + +m[4]) - (t.h * 60 + t.mi); if (len > 0) t.len = len; }
+    return t;
+  }
+  function parseStatus(v) {
+    const s = norm(v);
+    if (!s) return 0;
+    if (/удал|отмен/.test(s)) return null;             // отменённые записи не считаем
+    if (/не\s*приш|неявк|не\s*был|не\s*яв/.test(s)) return -1;
+    if (/приш|оказан|выполн|заверш|состоял|^был/.test(s)) return 1;
+    if (/подтвер/.test(s)) return 2;
+    return 0;
+  }
+  const hashId = s => { let h = 0; for (const ch of String(s)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0; return Math.abs(h) + 1; };
+
+  function toRaw(files, defCap) {
+    const branches = new Map(); let skipped = 0, cancelled = 0, used = 0, n = 0;
+    for (const f of files) {
+      const M = f.map;
+      for (let i = f.headerRow + 1; i < f.rows.length; i++) {
+        const row = f.rows[i]; if (!row || !row.some(c => c !== null && c !== "")) continue;
+        const d = parseDate(row[M.date]);
+        if (!d || !d.y || !d.m || !d.d) { skipped++; continue; }
+        const t = M.time != null ? parseTime(row[M.time]) : null;
+        const h = t ? t.h : d.h, mi = t ? t.mi : d.mi;
+        const att = M.status != null ? parseStatus(row[M.status]) : 0;
+        if (att === null) { cancelled++; continue; }
+        const service = str(row[M.service]) || "Без названия", staff = str(row[M.staff]) || "Без мастера";
+        const branch = (M.branch != null && str(row[M.branch])) || f.branch || "Филиал";
+        const category = M.category != null ? str(row[M.category]) : "";
+        if (!branches.has(branch)) branches.set(branch, {company: {id: hashId(branch), title: branch}, tz: DEFAULT_TZ,
+          activities: [], records: [], staff: [], services: new Map(), categories: new Map()});
+        const b = branches.get(branch);
+        const sid = hashId(service);
+        if (category) { b.categories.set(hashId(category), category); b.services.set(sid, hashId(category)); }
+        b.records.push({id: ++n, activity_id: 0, staff_id: hashId(staff), staff: {id: hashId(staff), name: staff},
+          services: [{id: sid, title: service, cost: M.cost != null ? num(String(row[M.cost]).replace(/\s/g, "").replace(",", ".")) : 0}],
+          client: {display_name: M.client != null ? str(row[M.client]) : "", phone: M.phone != null ? str(row[M.phone]) : ""},
+          clients_count: 1, attendance: att, length: t && t.len ? t.len * 60 : 0,
+          capacity: M.capacity != null ? int(row[M.capacity], 0) : 0,
+          datetime: `${d.y}-${pad(d.m)}-${pad(d.d)}T${pad(h)}:${pad(mi)}:00`});
+        used++;
+      }
+    }
+    const raw = [...branches.values()].map(b => ({...b,
+      services: [...b.services].map(([id, category_id]) => ({id, category_id})),
+      categories: [...b.categories].map(([id, title]) => ({id, title}))}));
+    return {raw, skipped, cancelled, used};
+  }
+  return {readFile, detectHeader, autoMap, FIELDS, toRaw, parseDate, norm, hashId};
+})();
+
+// Для файла: услуга, на которую хоть раз приходило 3+ человек, считается групповой;
+// «Мест в группе» подставляется, если вместимости нет в файле.
+function finalizeFileDataset(ds, defCap) {
+  const maxBySvc = new Map();
+  for (const s of ds.sessions) maxBySvc.set(s.service, Math.max(maxBySvc.get(s.service) || 0, s.signed));
+  const kwFormat = t => { for (const [re, f] of FORMAT_KEYWORDS) if (t && re.test(t)) return f; return null; };
+  const fmtById = new Map();
+  for (const s of ds.sessions) {
+    if (!kwFormat(s.service) && maxBySvc.get(s.service) >= 3) s.format = FMT_GROUP;
+    if (s.format === FMT_GROUP && !s.capacity && defCap) s.capacity = defCap;
+    s.fill = s.capacity ? Math.round(s.signed / s.capacity * 100) : null;
+    s.factFill = s.status === PAST && s.capacity ? Math.round(s.attended / s.capacity * 100) : null;
+    s.kind = "Из выгрузки YClients";
+    fmtById.set(s.id, s.format);
+  }
+  for (const r of ds.records) r.format = fmtById.get(r.sessionId) || r.format;
+  return ds;
+}
+
+/* Прокрутка к началу карточки. На iPhone после выбора файла плавная прокрутка не срабатывает, пока закрывается окно
+   выбора, а страница при этом укорачивается — поэтому прокручиваем сразу и ещё раз, когда страница снова видна. */
+try { history.scrollRestoration = "manual"; } catch {}
+function scrollToCard(el) {
+  const go = () => { const top = el.getBoundingClientRect().top + window.scrollY - 8; window.scrollTo(0, Math.max(0, top)); };
+  go();
+  requestAnimationFrame(go);
+  [150, 400, 900].forEach(ms => setTimeout(go, ms));
+  const once = () => { go(); setTimeout(go, 200); window.removeEventListener("focus", once); document.removeEventListener("visibilitychange", once); };
+  window.addEventListener("focus", once);
+  document.addEventListener("visibilitychange", once);
+  setTimeout(() => { window.removeEventListener("focus", once); document.removeEventListener("visibilitychange", once); }, 3000);
+}
+
+/* ---------- Облако: зашифрованные данные data/latest.enc.json ----------
+   Формат: {format:"ycx-enc-1", kdf:"PBKDF2-SHA256", iter, salt, iv, ct (base64; AES-256-GCM, тег в конце), updated, from, to}.
+   Внутри: {source:"yclients-cloud", collectedAt, from, to, payloads:[данные сборщика по филиалам], errors:[…]} */
+const b64bytes = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decryptCloud(env, pass) {
+  if (!window.crypto || !crypto.subtle) throw new Error("Браузер не умеет расшифровывать (нужен https и современный браузер).");
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", hash: "SHA-256", salt: b64bytes(env.salt), iterations: env.iter},
+    base, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  let plain;
+  try { plain = await crypto.subtle.decrypt({name: "AES-GCM", iv: b64bytes(env.iv)}, key, b64bytes(env.ct)); }
+  catch { throw new Error("Неверный пароль отчёта."); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+const fmtStamp = iso => { const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleString("ru-RU", {day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"}); };
+const ruDate = s => s ? s.split("-").reverse().join(".") : "";
+let cloudEnv = null;
+async function fetchCloud() {
+  try {
+    const r = await fetch("data/latest.enc.json?t=" + Date.now(), {cache: "no-store"});
+    if (r.status === 404) { cloudEnv = null; $("#cloudInfo").className = "alert warn"; $("#cloudInfo").textContent = "Данных пока нет — облачный сбор ещё не запускался. Можно загрузить файл или собрать из журнала вручную."; return null; }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    cloudEnv = await r.json();
+    $("#cloudInfo").className = "alert ok";
+    $("#cloudInfo").textContent = `Данные обновлены ${fmtStamp(cloudEnv.updated)} · период ${ruDate(cloudEnv.from)} — ${ruDate(cloudEnv.to)}`;
+    return cloudEnv;
+  } catch (e) {
+    $("#cloudInfo").className = "alert warn"; $("#cloudInfo").textContent = "Не удалось проверить облачные данные: " + (e.message || e);
+    return null;
+  }
+}
+async function openCloud(pass, silent) {
+  msg($("#cloudErr"));
+  const env = cloudEnv || await fetchCloud();
+  if (!env) return silent ? null : msg($("#cloudErr"), "Облачных данных пока нет.");
+  if (!pass) return silent ? null : msg($("#cloudErr"), "Введите пароль отчёта.");
+  const btn = $("#cloudBtn"); btn.disabled = true; btn.textContent = "Расшифровываю…";
+  try {
+    const data = await decryptCloud(env, pass);
+    if ($("#cloudRemember").checked) store.set("cloudPass", pass); else store.del("cloudPass");
+    loadJournal(data.payloads || []);
+    $("#connText").textContent = "Облако · обновлено " + fmtStamp(data.collectedAt || env.updated);
+    const notes = ["Данные из журнала записи: «пришло» равно числу записавшихся — отметки визитов в журнале не видны."];
+    if (data.errors && data.errors.length) notes.push("При последнем сборе были проблемы: " + data.errors.join("; "));
+    msg($("#resultNote"), notes.join("\n"));
+  } catch (e) {
+    if (/Неверный пароль/.test(e.message)) store.del("cloudPass");
+    msg($("#cloudErr"), e.message || String(e));
+  } finally { btn.disabled = false; btn.textContent = "Открыть отчёт"; }
+}
+$("#cloudBtn").onclick = () => openCloud($("#cloudPass").value);
+(async () => {
+  await fetchCloud();
+  const saved = store.get("cloudPass");
+  if (saved && cloudEnv && !location.hash.startsWith("#jd=")) { $("#cloudPass").value = saved; openCloud(saved, true); }
+})();
+
+/* ---------- Режим «Из журнала» ---------- */
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, "");
+let bookmarkletHref = "", consoleCode = "", fullHref = "";
+// Короткая закладка: подгружает актуальный сборщик с сайта приложения (если сайт YClients это разрешает).
+const loaderHref = "javascript:" + `(function(){var u='${APP_URL}';window.__ycxApp=u;var s=document.createElement('script');s.src=u+'journal-collector.js?v='+Date.now();s.onerror=function(){fetch(s.src).then(function(r){return r.text()}).then(function(t){(0,eval)(t)}).catch(function(e){alert('Сборщик YClients: сайт не дал загрузить код ('+e.message+'). Используйте полную версию закладки или консоль на компьютере.')})};document.body.appendChild(s)})()`.replace(/%/g, "%25").replace(/#/g, "%23");
+bookmarkletHref = loaderHref;
+$("#bmLink").href = loaderHref;
+fetch("journal-collector.js", {cache: "no-store"}).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(src => {
+  // компактный код закладки: без комментариев и отступов; экранируем только %, # и переводы строк
+  const code = src.split("__APP_URL__").join(APP_URL).replace(/\/\*[\s\S]*?\*\//g, "").split("\n").map(l => l.trim()).filter(Boolean).join("\n");
+  fullHref = "javascript:" + code.replace(/%/g, "%25").replace(/#/g, "%23").replace(/\n/g, "%0A");
+  consoleCode = code;
+}).catch(() => { $("#bmCopyMsg").textContent = "Не удалось загрузить код закладки — откройте приложение по ссылке GitHub Pages."; });
+$("#consoleCopy").onclick = async () => {
+  if (!consoleCode) return;
+  try { await navigator.clipboard.writeText(consoleCode); $("#consoleCopyMsg").textContent = "Скопировано ✓"; }
+  catch { prompt("Скопируйте код:", consoleCode); }
+};
+$("#bmLink").onclick = e => { e.preventDefault(); alert("Эту кнопку нужно перетащить мышкой на панель закладок, а нажимать — уже на странице журнала YClients."); };
+$("#bmCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText(loaderHref); $("#bmCopyMsg").textContent = "Скопировано ✓"; }
+  catch { prompt("Скопируйте код закладки:", loaderHref); }
+};
+$("#bmCopyFull").onclick = async () => {
+  if (!fullHref) return;
+  try { await navigator.clipboard.writeText(fullHref); $("#bmCopyFullMsg").textContent = "Скопировано ✓"; }
+  catch { prompt("Скопируйте код закладки:", fullHref); }
+};
+
+const isJournalOrigin = o => /^https:\/\/([a-z0-9-]+\.)*yclients\.(ru|com)$/i.test(o) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o);
+function validJournal(p) { return p && p.source === "yclients-journal" && Array.isArray(p.events) && p.company; }
+function journalToRaw(payloads) {
+  const names = store.get("branchNames") || {};
+  const byCompany = new Map();
+  for (const p of payloads) {
+    const id = String(p.company.id || p.company.title);
+    if (!byCompany.has(id)) byCompany.set(id, {company: {id: Importer.hashId(id), title: names[id] || p.company.title || "Филиал " + id}, tz: DEFAULT_TZ,
+      activities: [], records: [], staff: [], services: [], categories: [], seen: new Set()});
+    const b = byCompany.get(id);
+    for (const e of p.events) {
+      const key = [e.date, e.start, e.title, e.master, e.master ? "" : e.col].join("|");
+      if (b.seen.has(key)) continue; b.seen.add(key);
+      const [h, mi] = e.start.split(":").map(Number), [eh, emi] = (e.end || e.start).split(":").map(Number);
+      const len = Math.max(0, (eh * 60 + emi) - (h * 60 + mi)) * 60;
+      const staffId = e.master ? Importer.hashId(e.master) : Importer.hashId("col" + e.col);
+      const staff = {id: staffId, name: e.master || "Без мастера"};
+      if (e.kind === "group") b.activities.push({id: Importer.hashId(key), date: `${e.date} ${e.start}:00`, length: len, capacity: e.capacity,
+        records_count: e.signed, service: {id: Importer.hashId(e.title), title: e.title}, staff_id: staffId, staff});
+      else b.records.push({id: Importer.hashId(key), activity_id: 0, staff_id: staffId, staff, clients_count: 1, attendance: 0,
+        services: [{id: Importer.hashId(e.title), title: e.title}], datetime: `${e.date}T${e.start}:00`, length: len});
+    }
+  }
+  return [...byCompany.values()];
+}
+function loadJournal(payloads) {
+  payloads = payloads.filter(validJournal);
+  if (!payloads.length) throw new Error("Это не данные сборщика журнала.");
+  const raw = journalToRaw(payloads);
+  const ds = buildDataset(raw, false);
+  // В журнале видно только «записано из мест»; отметки визитов не видны — «пришло» считается равным «записано».
+  for (const s of ds.sessions) { s.came = null; s.noshow = null; s.kind = "Из журнала YClients"; }
+  if (!ds.sessions.length) throw new Error("В собранных данных нет занятий.");
+  const dates = payloads.flatMap(p => [p.from, p.to]).filter(Boolean).sort();
+  state.ds = ds; state.demo = false; state.api = null;
+  state.params = {from: dates[0], to: dates[dates.length - 1], branches: [...new Set(ds.sessions.map(s => s.branch))]};
+  show($("#connectCard"), false); show($("#mapCard"), false); show($("#logoutBtn")); show($("#connBadge"));
+  $("#connText").textContent = "Из журнала · " + state.params.branches.join(", ");
+  onResult();
+  msg($("#resultNote"), "Данные из журнала: по групповым занятиям видно «записано из мест». Отметки «пришёл / не пришёл» в журнале не видны, поэтому «пришло» здесь равно числу записавшихся.");
+}
+function journalError(e) { setSource("journal"); show($("#connectCard")); msg($("#jErr"), e.message || String(e)); }
+$("#jFileInput").onchange = async e => {
+  msg($("#jErr"));
+  try {
+    const payloads = [];
+    for (const f of e.target.files) payloads.push(JSON.parse(await f.text()));
+    loadJournal(payloads);
+  } catch (err) { journalError(err instanceof SyntaxError ? new Error("Файл не похож на данные сборщика.") : err); }
+  e.target.value = "";
+};
+$("#jPasteBtn").onclick = async () => {
+  msg($("#jErr"));
+  let text = "";
+  try { text = await navigator.clipboard.readText(); } catch { text = prompt("Вставьте скопированные данные:") || ""; }
+  try { loadJournal([JSON.parse(text)]); } catch (err) { journalError(err instanceof SyntaxError ? new Error("В буфере нет данных сборщика. В окне сборщика нажмите «Скопировать данные».") : err); }
+};
+// Приём данных от закладки: окно приложения сообщает о готовности, сборщик присылает данные.
+if (location.hash === "#journal" && window.opener) {
+  let got = false;
+  window.addEventListener("message", e => {
+    if (!isJournalOrigin(e.origin) || !e.data || e.data.type !== "ycx-journal" || got) return;
+    got = true;
+    try { e.source.postMessage({type: "ycx-ready", got: true}, e.origin); } catch {}
+    try { loadJournal([e.data.payload]); history.replaceState(null, "", location.pathname); } catch (err) { journalError(err); }
+  });
+  const ping = setInterval(() => { if (got) return clearInterval(ping); try { window.opener.postMessage({type: "ycx-ready"}, "*"); } catch {} }, 400);
+  setTimeout(() => clearInterval(ping), 30000);
+}
+if (location.hash === "#journal" && !window.opener) setSource("journal");
+// Данные из сборщика в самой ссылке: #jd=<сжатые данные>
+async function unpackJournal(s) {
+  const tag = s[0];
+  let b64 = s.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const text = tag === "z"
+    ? await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).text()
+    : new TextDecoder().decode(bytes);
+  return JSON.parse(text);
+}
+if (location.hash.startsWith("#jd=")) {
+  const packed = location.hash.slice(4);
+  history.replaceState(null, "", location.pathname);   // убрать данные из адресной строки
+  unpackJournal(packed).then(p => loadJournal([p]))
+    .catch(err => journalError(new Error("Не удалось прочитать данные сборщика (" + (err.message || err) + "). Нажмите в сборщике «Скачать файл» и выберите его здесь.")));
+}
+
+let fileState = [];
+async function handleFiles(list) {
+  msg($("#fileErr"));
+  const files = [...list]; if (!files.length) return;
+  const out = [];
+  for (const file of files) {
+    try {
+      const rows = await Importer.readFile(file);
+      const headerRow = Importer.detectHeader(rows);
+      if (headerRow < 0) throw new Error("не удалось найти строку с заголовками колонок (дата, услуга, сотрудник…)");
+      const headers = (rows[headerRow] || []).map(h => String(h ?? "").trim());
+      const sig = headers.join("|");
+      const saved = (store.get("maps") || {})[sig];
+      out.push({name: file.name, rows, headerRow, headers, sig, map: saved || Importer.autoMap(headers),
+        branch: file.name.replace(/\.[^.]+$/, ""), dataRows: rows.length - headerRow - 1});
+    } catch (e) {
+      return msg($("#fileErr"), `Не получилось прочитать «${file.name}»: ${e.message || e}`);
+    }
+  }
+  fileState = out;
+  renderMapping();
+  show($("#connectCard"), false); show($("#mapCard")); show($("#logoutBtn")); show($("#connBadge"));
+  $("#connText").textContent = `Файл${out.length > 1 ? "ы" : ""}: ${out.map(f => f.name).join(", ")}`;
+  scrollToCard($("#mapCard"));
+}
+function renderMapping() {
+  $("#fmaps").innerHTML = fileState.map((f, fi) => {
+    const opts = sel => `<option value="">— нет —</option>` + f.headers.map((h, i) => h ? `<option value="${i}" ${sel === i ? "selected" : ""}>${escH(h)}</option>` : "").join("");
+    const fields = Importer.FIELDS.map(fd => `<div class="${fd.req ? "req" : ""}"><label>${fd.label}</label><select data-f="${fi}" data-k="${fd.k}">${opts(f.map[fd.k])}</select></div>`).join("");
+    const shown = Importer.FIELDS.filter(fd => f.map[fd.k] != null);
+    const sample = f.rows.slice(f.headerRow + 1, f.headerRow + 5);
+    const cellText = v => v == null ? "" : typeof v === "number" && v > 20000 && v < 80000 ? (() => { const d = Importer.parseDate(v); return `${pad(d.d)}.${pad(d.m)}.${d.y}${d.hasTime ? ` ${pad(d.h)}:${pad(d.mi)}` : ""}`; })() : String(v);
+    const missing = Importer.FIELDS.filter(fd => fd.req && f.map[fd.k] == null).map(fd => fd.label);
+    const isOpen = f.open ?? missing.length > 0;
+    return `<div class="fmap"><h3>${escH(f.name)}</h3><div class="muted">Строк с данными: ${f.dataRows.toLocaleString("ru")}</div>
+      <div class="alert ${missing.length ? "warn" : "ok"}" style="margin-top:10px">${missing.length ? "Не нашлись колонки: " + missing.join(", ") + ". Выберите их ниже." : "✓ Все нужные колонки найдены"}</div>
+      <details data-open="${fi}" ${isOpen ? "open" : ""}><summary>Колонки и пример данных</summary>
+      <div class="mapgrid">${fields}<div><label>Название филиала (если колонки нет)</label><input type="text" data-branch="${fi}" value="${escH(f.branch)}"></div></div>
+      ${shown.length ? `<div class="preview"><table><thead><tr>${shown.map(fd => `<th>${fd.label}</th>`).join("")}</tr></thead><tbody>${sample.map(r => `<tr>${shown.map(fd => `<td>${escH(cellText(r[f.map[fd.k]]))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : ""}</details></div>`;
+  }).join("");
+  $$("#fmaps details[data-open]").forEach(d => d.ontoggle = () => { fileState[+d.dataset.open].open = d.open; });
+  $$("#fmaps select").forEach(s => s.onchange = () => { const f = fileState[+s.dataset.f]; f.map[s.dataset.k] = s.value === "" ? null : +s.value; renderMapping(); });
+  $$("#fmaps [data-branch]").forEach(i => i.oninput = () => { fileState[+i.dataset.branch].branch = i.value.trim(); });
+}
+$("#fileInput").onchange = e => { handleFiles(e.target.files); e.target.value = ""; };
+const dropEl = $("#drop");
+["dragenter", "dragover"].forEach(ev => dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.remove("over"); }));
+dropEl.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
+$("#otherFileBtn").onclick = () => { show($("#mapCard"), false); show($("#resultCard"), false); show($("#connectCard")); setSource("file"); };
+$("#buildBtn").onclick = () => {
+  msg($("#mapErr")); msg($("#mapWarn"));
+  for (const f of fileState) {
+    const miss = Importer.FIELDS.filter(fd => fd.req && f.map[fd.k] == null).map(fd => fd.label);
+    if (miss.length) return msg($("#mapErr"), `«${f.name}»: укажите колонки — ${miss.join(", ")}.`);
+  }
+  const maps = store.get("maps") || {}; fileState.forEach(f => maps[f.sig] = f.map); store.set("maps", maps);
+  const defCap = int($("#defCap").value, null);
+  store.set("defCap", defCap);
+  const {raw, skipped, cancelled, used} = Importer.toRaw(fileState, defCap);
+  if (!used) return msg($("#mapErr"), "Не нашлось ни одной записи с распознанной датой. Проверьте колонку «Дата визита».");
+  const ds = finalizeFileDataset(buildDataset(raw, false), defCap);
+  const starts = ds.sessions.map(s => s.start), iso = ms => { const d = D(ms); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
+  state.ds = ds; state.demo = false; state.api = null;
+  state.params = {from: iso(Math.min(...starts)), to: iso(Math.max(...starts)), branches: [...new Set(ds.sessions.map(s => s.branch))]};
+  const notes = [];
+  if (cancelled) notes.push(`Отменённые записи не учитывались: ${cancelled}.`);
+  if (skipped) notes.push(`Строк без распознанной даты пропущено: ${skipped}.`);
+  if (Importer.FIELDS && fileState.some(f => f.map.status == null)) notes.push("Колонка статуса визита не выбрана — «пришло» считается по числу записей.");
+  msg($("#mapWarn"), notes.join("\n"));
+  onResult();
+  msg($("#resultNote"));
+};
+$("#logoutBtn").onclick = () => {
+  if (store.get("auth") && confirm("Удалить сохранённые токены с этого устройства?")) store.del("auth");
+  location.reload();
+};
+
+function onConnected(companies) {
+  state.companies = companies.map(c => ({...c, city: typeof c.city === "string" ? c.city : (c.city || {}).title || ""}))
+    .sort((a, b) => String(a.title).localeCompare(String(b.title), "ru"));
+  show($("#connectCard"), false); show($("#paramsCard")); show($("#logoutBtn")); show($("#connBadge"));
+  $("#connText").textContent = state.demo ? "Демо-режим" : `Подключено · филиалов: ${companies.length}`;
+  const savedSel = store.get("branches");
+  renderBranches(savedSel && savedSel.length ? new Set(savedSel) : null);
+  if (!$("#dFrom").value) preset("around");
+}
+
+function renderBranches(selected) {
+  const q = $("#branchSearch").value.toLowerCase();
+  const current = selected || new Set($$("#branches input:checked").map(i => +i.value));
+  const first = !selected && !$("#branches input");
+  const items = state.companies.filter(c => !q || `${c.title} ${c.address || ""} ${c.city}`.toLowerCase().includes(q));
+  // скрытые поиском филиалы сохраняют свою отметку
+  const hiddenChecked = state.companies.filter(c => !items.includes(c) && current.has(c.id)).map(c => c.id);
+  $("#branches").dataset.hidden = JSON.stringify(hiddenChecked);
+  $("#branches").innerHTML = items.map(c => `<label><input type="checkbox" value="${c.id}" ${(first || current.has(c.id)) ? "checked" : ""}><span>${escH(c.title)}<span class="addr">${escH([c.city, c.address].filter(Boolean).join(", "))}</span></span></label>`).join("")
+    || `<p class="muted" style="padding:10px">Ничего не найдено</p>`;
+}
+const selectedBranches = () => [...$$("#branches input:checked").map(i => +i.value), ...JSON.parse($("#branches").dataset.hidden || "[]")];
+$("#branchSearch").oninput = () => renderBranches(new Set(selectedBranches()));
+$("#allBranches").onchange = e => { $$("#branches input").forEach(i => i.checked = e.target.checked); if (!e.target.checked) $("#branches").dataset.hidden = "[]"; };
+
+function preset(p, fromEl = $("#dFrom"), toEl = $("#dTo")) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const add = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const monday = d => add(d, -((d.getDay() + 6) % 7));
+  let a, b;
+  if (p === "week") { a = monday(t); b = add(a, 6); }
+  if (p === "lastweek") { a = add(monday(t), -7); b = add(a, 6); }
+  if (p === "nextweek") { a = add(monday(t), 7); b = add(a, 6); }
+  if (p === "month") { a = new Date(t.getFullYear(), t.getMonth(), 1); b = new Date(t.getFullYear(), t.getMonth() + 1, 0); }
+  if (p === "lastmonth") { a = new Date(t.getFullYear(), t.getMonth() - 1, 1); b = new Date(t.getFullYear(), t.getMonth(), 0); }
+  if (p === "around") { a = add(t, -30); b = add(t, 30); }
+  fromEl.value = isoLocal(a); toEl.value = isoLocal(b);
+}
+$$("#presets button").forEach(b => b.onclick = () => preset(b.dataset.p));
+
+
+
+function setProgress(frac, text) { $("#bar").style.width = Math.round(Math.min(1, frac) * 100) + "%"; $("#progressMsg").textContent = text; }
+
+$("#loadBtn").onclick = async () => {
+  if (state.busy) return;
+  msg($("#loadErr")); msg($("#loadWarn"));
+  const from = $("#dFrom").value, to = $("#dTo").value, ids = selectedBranches();
+  if (!from || !to) return msg($("#loadErr"), "Укажите период.");
+  if (from > to) return msg($("#loadErr"), "Дата «с» позже даты «по».");
+  if ((new Date(to) - new Date(from)) / 864e5 > MAX_DAYS) return msg($("#loadErr"), "Слишком большой период — не больше 13 месяцев за раз.");
+  if (!ids.length) return msg($("#loadErr"), "Выберите хотя бы один филиал.");
+  store.set("branches", ids);
+  state.busy = true; state.cancel = false;
+  $("#loadBtn").disabled = true; show($("#cancelBtn")); show($("#progressBox")); show($("#resultCard"), false);
+  const warnings = [];
+  try {
+    let raw;
+    if (state.demo) { setProgress(0.5, "Генерирую демо-данные…"); await sleep(250); raw = Demo.generate(from, to, ids); }
+    else {
+      raw = [];
+      const list = state.companies.filter(c => ids.includes(c.id));
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i], n = list.length;
+        const step = (f, t) => setProgress((i + f) / n, `${c.title} (${i + 1}/${n}): ${t}`);
+        const item = {company: c, tz: branchTz(c)};
+        step(0.02, "сотрудники и услуги");
+        item.staff = await state.api.staff(c.id);
+        item.services = await state.api.optionalList(`/company/${c.id}/services`);
+        item.categories = await state.api.optionalList(`/company/${c.id}/service_categories`);
+        step(0.15, "групповые занятия");
+        try { item.activities = await state.api.activities(c.id, from, to, k => step(0.2, `групповые занятия: ${k}`)); }
+        catch (e) { if (e instanceof CorsError || state.cancel) throw e; item.activities = []; warnings.push(`${c.title}: групповые занятия не загрузились (${e.message})`); }
+        step(0.3, "записи клиентов");
+        try { item.records = await state.api.records(c.id, from, to, (got, total) => step(0.3 + 0.68 * (total ? got / total : 0.5), `записи клиентов: ${got}${total ? " из " + total : ""}`)); }
+        catch (e) { if (e instanceof CorsError || state.cancel) throw e; item.records = []; warnings.push(`${c.title}: записи не загрузились (${e.message})`); }
+        raw.push(item);
+      }
+    }
+    setProgress(1, "Собираю занятия…");
+    const ds = buildDataset(raw, $("#withClients").checked);
+    if (!ds.sessions.length && warnings.length >= ids.length) throw new YcError(warnings.join("\n"));
+    const titles = state.companies.filter(c => ids.includes(c.id)).map(c => c.title);
+    state.ds = ds; state.params = {from, to, branches: titles};
+    if (warnings.length) msg($("#loadWarn"), warnings.join("\n"));
+    onResult();
+  } catch (e) {
+    msg($("#loadErr"), state.cancel ? "Загрузка остановлена." : errorText(e));
+  } finally {
+    state.busy = false; $("#loadBtn").disabled = false; show($("#cancelBtn"), false); show($("#progressBox"), false);
+  }
+};
+$("#cancelBtn").onclick = () => { state.cancel = true; };
+
+function onResult() {
+  const ds = state.ds, s = summarize(ds.sessions);
+  const groups = buildGroups(ds.sessions);
+  const gPast = ds.sessions.filter(x => x.format === FMT_GROUP && x.factFill != null);
+  const avgFill = avg(gPast.map(x => x.factFill));
+  $("#kpis").innerHTML = [["Всего занятий", s.total], ["Прошло", s.past], ["Запланировано", s.planned],
+    ["Групп в расписании", groups.length], ["Посещений (факт)", ds.sessions.reduce((t, x) => t + (x.attended || 0), 0)],
+    ["Ср. наполняемость групп", avgFill == null ? "—" : Math.round(avgFill) + "%"]]
+    .map(([t, v]) => `<div class="kpi"><b>${typeof v === "number" ? v.toLocaleString("ru") : v}</b><span>${t}</span></div>`).join("");
+  const masters = [...new Set(ds.sessions.map(x => x.master))].sort((a, b) => a.localeCompare(b, "ru"));
+  const branches = [...new Set(ds.sessions.map(x => x.branch))].sort((a, b) => a.localeCompare(b, "ru"));
+  $("#fMaster").innerHTML = `<option value="">Все мастера</option>` + masters.map(m => `<option>${escH(m)}</option>`).join("");
+  $("#fBranch").innerHTML = `<option value="">Все филиалы</option>` + branches.map(m => `<option>${escH(m)}</option>`).join("");
+  $("#fmtChips").innerHTML = FORMATS.map(f => `<button class="chip" data-f="${f}">${f}</button>`).join("");
+  $$("#fmtChips .chip").forEach(c => c.onclick = () => {
+    filt.formats.has(c.dataset.f) ? filt.formats.delete(c.dataset.f) : filt.formats.add(c.dataset.f);
+    c.classList.toggle("on"); shownLimit = 200; render();
+  });
+  Object.assign(filt, {status: "", master: "", branch: "", q: ""}); filt.formats.clear(); $("#fQ").value = "";
+  $$("#statusTabs button").forEach((x, i) => x.classList.toggle("on", i === 0));
+  show($("#shareBtn"), isTouch && !!navigator.canShare);
+  setView("groups");
+  $("#filtersBox").open = !matchMedia("(max-width: 760px)").matches;
+  show($("#resultCard")); shownLimit = 200; gLimit = 100; render();
+  scrollToCard($("#resultCard"));
+}
+$$("#statusTabs button").forEach(b => b.onclick = () => { filt.status = b.dataset.s; $$("#statusTabs button").forEach(x => x.classList.toggle("on", x === b)); shownLimit = 200; gLimit = 100; render(); });
+$("#fMaster").onchange = e => { filt.master = e.target.value; shownLimit = 200; gLimit = 100; render(); };
+$("#fBranch").onchange = e => { filt.branch = e.target.value; shownLimit = 200; gLimit = 100; render(); };
+$("#fQ").oninput = e => { filt.q = e.target.value.trim().toLowerCase(); shownLimit = 200; gLimit = 100; render(); };
+$("#moreBtn").onclick = () => { shownLimit += 500; render(); };
+$("#gMoreBtn").onclick = () => { gLimit += 200; render(); };
+$$("#topN button").forEach(b => b.onclick = () => { topN = +b.dataset.n; $$("#topN button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+$$("#topMode button").forEach(b => b.onclick = () => { topMode = b.dataset.m; $$("#topMode button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+
+/* ---------- сортировка: список + кнопка направления, а на компьютере — клик по заголовку колонки ---------- */
+const DEFAULT_DIR = {schedule: 1, name: 1, branch: 1, masters: 1, count: -1, people: -1, fill: -1,
+  date: 1, service: 1, master: 1, format: 1, signed: -1, came: -1, status: 1};
+const sortState = {g: {key: "schedule", dir: 1}, a: {key: "date", dir: 1}};
+function syncSortUI() {
+  $("#gSort").value = sortState.g.key; $("#aSort").value = sortState.a.key;
+  const dirHtml = d => d > 0 ? `↑<span class="long"> по возрастанию</span>` : `↓<span class="long"> по убыванию</span>`;
+  $("#gDir").innerHTML = dirHtml(sortState.g.dir); $("#aDir").innerHTML = dirHtml(sortState.a.dir);
+}
+function setSort(which, key, toggle = true) {
+  const st = sortState[which];
+  if (toggle && st.key === key) st.dir = -st.dir; else { st.key = key; st.dir = DEFAULT_DIR[key] || 1; }
+  syncSortUI(); render();
+}
+$("#gSort").onchange = e => setSort("g", e.target.value, false);
+$("#aSort").onchange = e => setSort("a", e.target.value, false);
+$("#gDir").onclick = () => { sortState.g.dir *= -1; syncSortUI(); render(); };
+$("#aDir").onclick = () => { sortState.a.dir *= -1; syncSortUI(); render(); };
+$("#glist").addEventListener("click", e => { const h = e.target.closest("[data-sort]"); if (h) { e.preventDefault(); setSort("g", h.dataset.sort); } });
+$("#list").addEventListener("click", e => { const h = e.target.closest("[data-sort]"); if (h) setSort("a", h.dataset.sort); });
+syncSortUI();
+function sorter(get, dir, tie) {   // пустые значения всегда в конце
+  return (a, b) => {
+    const x = get(a), y = get(b);
+    if (x == null && y == null) return tie(a, b);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    const r = typeof x === "string" ? x.localeCompare(y, "ru") : x - y;
+    return r * dir || tie(a, b);
+  };
+}
+const G_KEYS = {schedule: g => g.wd * 1440 + (+g.time.slice(0, 2)) * 60 + (+g.time.slice(3)), name: g => g.service, branch: g => g.branch,
+  masters: g => g.mastersText, count: g => g.total, people: g => g.avgPeople, fill: g => g.avgFill ?? g.plannedFill};
+const A_KEYS = {date: x => x.start, branch: x => x.branch, service: x => x.service, master: x => x.master, format: x => FORMATS.indexOf(x.format),
+  signed: x => x.signed, came: x => x.status === PAST ? (x.came ?? x.attended) : null, fill: x => x.factFill ?? x.fill, status: x => x.status};
+function sortHead(which, key, label) {
+  const st = sortState[which], on = st.key === key;
+  return `<span class="sortable${on ? " on" : ""}" data-sort="${key}">${label}${on ? (st.dir > 0 ? " ▲" : " ▼") : ""}</span>`;
+}
+$$("#viewTabs button").forEach(b => b.onclick = () => { setView(b.dataset.v); render(); });
+
+let view = "groups", gLimit = 100, topN = 10, topMode = "groups";
+function setView(v) {
+  view = v;
+  $$("#viewTabs button").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+  show($("#groupsView"), v === "groups"); show($("#topView"), v === "top"); show($("#allView"), v === "all");
+}
+function render() {
+  const all = state.ds.sessions, rows = all.filter(view === "all" ? matches : matchesBase);
+  $("#shownInfo").textContent = rows.length === all.length ? `${all.length.toLocaleString("ru")} занятий` : `Отобрано ${rows.length.toLocaleString("ru")} из ${all.length.toLocaleString("ru")} занятий`;
+  const filtered = hasFilters();
+  $("#dlBtn").textContent = filtered ? "Скачать Excel (с фильтрами)" : "Скачать Excel";
+  show($("#dlAllBtn"), filtered);
+  if (view === "groups") renderGroups(rows);
+  else if (view === "top") renderTop(rows);
+  else renderList(rows);
+}
+
+const fmtNum = v => v == null ? "—" : String(v).replace(".", ",");
+const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
+function fillCell(v, note) {
+  if (v == null) return `<span class="sub">нет данных</span>`;
+  const cls = v >= 75 ? "" : v >= 40 ? "mid" : "lo";
+  return `<div class="num"><b>${v}%</b>${note ? ` <span class="sub">${note}</span>` : ""}</div><div class="fillbar ${cls}"><i style="width:${Math.min(v, 100)}%"></i></div>`;
+}
+function renderGroups(sessions) {
+  const groups = buildGroups(sessions);
+  groups.sort(sorter(G_KEYS[sortState.g.key], sortState.g.dir, bySchedule));
+  $("#groupsNote").textContent = groups.length
+    ? `${groups.length} ${plural(groups.length, "группа", "группы", "групп")} в расписании. Нажмите на группу, чтобы увидеть каждое занятие.`
+    : "";
+  if (!groups.length) { $("#glist").innerHTML = `<div class="empty">Нет групповых занятий по выбранным условиям</div>`; show($("#gMoreBtn"), false); return; }
+  const head = `<div class="ghead"><div>${sortHead("g", "name", "Группа")} · ${sortHead("g", "schedule", "день, время")} · ${sortHead("g", "branch", "филиал")}</div>
+    <div>${sortHead("g", "masters", "Кто вёл")}</div><div>${sortHead("g", "count", "Занятий")}</div><div>${sortHead("g", "people", "В среднем пришло")}</div>
+    <div>${sortHead("g", "fill", "Наполняемость")}</div><div></div></div>`;
+  $("#glist").innerHTML = head + groups.slice(0, gLimit).map(g => `<details class="grp"><summary>
+      <div class="g-name"><b>${escH(g.service)}</b><div class="sub">${g.dayShort} ${g.time} · ${escH(g.branch)}</div></div>
+      <div class="g-masters"><span class="only-m">Вели: </span>${escH(g.mastersText)}</div>
+      <div class="g-count num">${g.total} <span class="sub">${plural(g.total, "занятие", "занятия", "занятий")}</span>${g.planned ? `<div class="sub">из них впереди: ${g.planned}</div>` : ""}</div>
+      <div class="g-people num">${g.avgPeople != null ? `<b>${fmtNum(g.avgPeople)}</b>${g.capacity ? ` <span class="sub">из ${g.capacity}</span>` : ""}` : `<span class="sub">ещё не было</span>`}</div>
+      <div class="g-fill">${g.avgFill != null ? fillCell(g.avgFill) : g.plannedFill != null ? fillCell(g.plannedFill, "записано") : fillCell(null)}</div>
+      <div class="chev">›</div></summary>
+      <div class="gdet"><table><thead><tr><th>Дата</th><th>Мастер</th><th>Пришли</th><th>Записано</th><th>Мест</th><th>Не пришли</th><th>Статус</th></tr></thead><tbody>
+      ${g.sessions.map(x => `<tr><td class="num">${fmtDate(x.start)} <span class="sub">${weekday(x.start)}</span></td><td>${escH(x.master)}</td>
+        <td class="num"><b>${x.attended ?? "—"}</b></td><td class="num">${x.signed}</td><td class="num">${x.capacity ?? "—"}</td>
+        <td class="num">${x.noshow ?? "—"}</td><td><span class="pill s-${x.status}">${x.status}</span></td></tr>`).join("")}
+      </tbody></table></div></details>`).join("");
+  show($("#gMoreBtn"), groups.length > gLimit);
+}
+function renderTop(sessions) {
+  const lim = topN || Infinity;
+  if (topMode === "sessions") return renderTopSessions(sessions, lim);
+  const {best, worst, by} = rankGroups(buildGroups(sessions));
+  $("#topNote").textContent = by === "fill"
+    ? "Средняя наполняемость = сколько пришло ÷ мест, по прошедшим занятиям группы за выбранный период."
+    : "Количество мест неизвестно, поэтому рейтинг — по среднему числу пришедших на занятие. Чтобы считать в процентах, укажите «Мест в группе» при загрузке файла.";
+  const maxP = Math.max(1, ...best.map(g => g.avgPeople || 0));
+  const item = (g, i) => `<div class="rank"><div class="rn">${i + 1}</div>
+    <div><b>${escH(g.service)}</b><div class="sub">${g.dayShort} ${g.time} · ${escH(g.branch)}</div><div class="sub">${escH(g.mastersText)}</div></div>
+    <div>${by === "fill" ? fillCell(g.avgFill) + `<div class="sub" style="margin-top:4px">в среднем ${fmtNum(g.avgPeople)} из ${g.capacity} · ${g.past} ${plural(g.past, "занятие", "занятия", "занятий")}</div>`
+      : `<div class="num"><b>${fmtNum(g.avgPeople)}</b> <span class="sub">чел. в среднем</span></div><div class="fillbar"><i style="width:${Math.round((g.avgPeople || 0) / maxP * 100)}%"></i></div><div class="sub" style="margin-top:4px">${g.past} ${plural(g.past, "занятие", "занятия", "занятий")}</div>`}</div></div>`;
+  const empty = `<div class="empty">Нет прошедших групповых занятий за этот период</div>`;
+  $("#topBest").innerHTML = best.length ? best.slice(0, lim).map(item).join("") : empty;
+  $("#topWorst").innerHTML = worst.length ? worst.slice(0, lim).map(item).join("") : empty;
+}
+function renderTopSessions(sessions, lim) {
+  const {best, worst, by} = rankSessions(sessions);
+  $("#topNote").textContent = by === "fill"
+    ? "Каждое прошедшее групповое занятие отдельно (конкретная дата и время): наполняемость = сколько пришло ÷ мест."
+    : "Каждое прошедшее групповое занятие отдельно. Количество мест неизвестно, поэтому рейтинг — по числу пришедших.";
+  const maxP = Math.max(1, ...best.map(s => s.attended || 0));
+  const item = (s, i) => `<div class="rank"><div class="rn">${i + 1}</div>
+    <div><b>${escH(s.service)}</b><div class="sub">${fmtDate(s.start)} ${weekday(s.start)} ${fmtTime(s.start)} · ${escH(s.branch)}</div><div class="sub">${escH(s.master)}</div></div>
+    <div>${by === "fill" ? fillCell(s.factFill) + `<div class="sub" style="margin-top:4px">пришло ${s.attended} из ${s.capacity}</div>`
+      : `<div class="num"><b>${s.attended || 0}</b> <span class="sub">чел.</span></div><div class="fillbar"><i style="width:${Math.round((s.attended || 0) / maxP * 100)}%"></i></div>`}</div></div>`;
+  const empty = `<div class="empty">Нет прошедших групповых занятий за этот период</div>`;
+  $("#topBest").innerHTML = best.length ? best.slice(0, lim).map(item).join("") : empty;
+  $("#topWorst").innerHTML = worst.length ? worst.slice(0, lim).map(item).join("") : empty;
+}
+
+const matches = x => (!filt.status || x.status === filt.status) && (!filt.formats.size || filt.formats.has(x.format))
+  && (!filt.master || x.master === filt.master) && (!filt.branch || x.branch === filt.branch)
+  && (!filt.q || `${x.service} ${x.master} ${x.branch} ${x.category}`.toLowerCase().includes(filt.q));
+const matchesBase = x => (!filt.status || x.status === filt.status)
+  && (!filt.master || x.master === filt.master) && (!filt.branch || x.branch === filt.branch)
+  && (!filt.q || `${x.service} ${x.master} ${x.branch} ${x.category}`.toLowerCase().includes(filt.q));
+const hasFilters = () => !!(filt.status || (view === "all" && filt.formats.size) || filt.master || filt.branch || filt.q);
+
+function renderList(rows) {
+  rows = [...rows].sort(sorter(A_KEYS[sortState.a.key], sortState.a.dir, (a, b) => a.start - b.start || a.branch.localeCompare(b.branch, "ru")));
+  const head = `<div class="lrow lhead"><div>${sortHead("a", "date", "Дата и время")}</div><div>${sortHead("a", "branch", "Филиал")}</div>
+    <div>${sortHead("a", "service", "Занятие")}</div><div>${sortHead("a", "master", "Мастер")}</div><div>${sortHead("a", "format", "Формат")}</div>
+    <div>${sortHead("a", "signed", "Записано")} / ${sortHead("a", "came", "пришли")}</div><div>${sortHead("a", "status", "Статус")}</div></div>`;
+  $("#list").innerHTML = rows.length ? head + rows.slice(0, shownLimit).map(x => `<div class="lrow">
+    <div class="c-when num">${fmtDate(x.start)} <span class="sub">${weekday(x.start)}</span><div>${fmtTime(x.start)}${x.end ? "–" + fmtTime(x.end) : ""}</div></div>
+    <div class="c-branch">${escH(x.branch)}</div>
+    <div class="c-service">${escH(x.service || "—")}${x.category ? `<div class="sub" style="font-weight:400">${escH(x.category)}</div>` : ""}</div>
+    <div class="c-master">${escH(x.master)}${state.params.branches.length > 1 ? `<span class="only-m"> · ${escH(x.branch)}</span>` : ""}</div>
+    <div class="c-format"><span class="pill f-${x.format.split(" ")[0]}">${x.format}</span></div>
+    <div class="c-people num">${x.signed}${x.capacity ? " / " + x.capacity : ""} <span class="sub">записано</span>${x.came != null ? `<div>${x.came} <span class="sub">пришли</span></div>${x.noshow ? `<div class="sub">не пришли: ${x.noshow}</div>` : ""}` : ""}</div>
+    <div class="c-status"><span class="pill s-${x.status}">${x.status}</span></div></div>`).join("")
+    : `<div class="empty">Нет занятий по выбранным условиям</div>`;
+  show($("#moreBtn"), rows.length > shownLimit);
+}
+
+async function makeFile(withFilters) {
+  let ds = state.ds, groupSessions = ds.sessions;
+  const filters = [];
+  if (withFilters && hasFilters()) {
+    const useFormats = view === "all" && filt.formats.size;
+    const sessions = ds.sessions.filter(useFormats ? matches : matchesBase), ids = new Set(sessions.map(s => s.id));
+    groupSessions = ds.sessions.filter(matchesBase);
+    ds = {...ds, sessions, records: ds.records.filter(r => ids.has(r.sessionId))};
+    if (filt.status) filters.push("статус: " + filt.status);
+    if (useFormats) filters.push("формат: " + [...filt.formats].join(", "));
+    if (filt.master) filters.push("мастер: " + filt.master);
+    if (filt.branch) filters.push("филиал: " + filt.branch);
+    if (filt.q) filters.push(`поиск: «${filt.q}»`);
+  }
+  const p = state.params, ru = s => s.split("-").reverse().join(".");
+  const blob = await buildExcel(ds, {period: `${ru(p.from)} — ${ru(p.to)}`, branches: p.branches.join(", "), filters: filters.join("; ")}, groupSessions);
+  return {blob, name: `yclients_zanyatiya_${p.from}_${p.to}.xlsx`};
+}
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function withBusy(btn, fn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = "Готовлю файл…";
+  try { await fn(); } catch (e) { if (e && e.name !== "AbortError") alert("Не удалось сформировать файл: " + (e.message || e)); }
+  finally { btn.disabled = false; btn.textContent = t; render(); }
+}
+$("#dlBtn").onclick = () => withBusy($("#dlBtn"), async () => { const f = await makeFile(true); saveBlob(f.blob, f.name); });
+$("#dlAllBtn").onclick = () => withBusy($("#dlAllBtn"), async () => { const f = await makeFile(false); saveBlob(f.blob, f.name); });
+$("#shareBtn").onclick = () => withBusy($("#shareBtn"), async () => {
+  const f = await makeFile(true);
+  const file = new File([f.blob], f.name, {type: f.blob.type});
+  if (navigator.canShare && navigator.canShare({files: [file]})) await navigator.share({files: [file], title: f.name});
+  else saveBlob(f.blob, f.name);
+});
+
+// старт
+(() => {
+  $("#proxy").value = store.get("proxy", "") || "";
+  if ($("#proxy").value) $("#proxyDetails").open = true;
+  const a = store.get("auth");
+  $("#defCap").value = store.get("defCap") || "";
+  if (a && a.partner && a.user) { show($("#savedBox")); $("#savedLogin").textContent = a.login ? ` (${a.login})` : ""; $("#partner").value = a.partner; }
+})();
+</script>
+</body>
+</html>
